@@ -1,9 +1,9 @@
 {
     "version": "1.0.0",
-    "summary": "elm-program",
-    "repository": "https://github.com/user/project.git",
+    "summary": "elm-colorpicker",
+    "repository": "https://github.com/simonh1000/elm-colorpicker.git",
     "license": "ISC",
-    "description": "Color Picker",
+    "description": "Color Picker in pure Elm",
     "source-directories": [
         "src"
     ],
