@@ -4,37 +4,45 @@ An Elm library to help you implement a color picker tool without relying upon th
 
 <img src="screenshot.png" alt="screen shot">
 
-
 ## Example
 
 ```elm
 import ColorPicker
 
 type alias Model =
-    { colorPicker : ColorPicker.State }
-
+    { colorPicker : ColorPicker.State
+    , colour : Color
+    }
 
 init : Model
 init =
-    { colorPicker = ColorPicker.init }
+    { colorPicker = ColorPicker.empty
+    , colour = Color.rgb 255 0 0
+    }
 
 type Msg
-    = CPMsg ColorPicker.Msg
+    = ColorPickerMsg ColorPicker.Msg
 
 update : Msg -> Model -> Model
 update message model =
     case message of
-        CPMsg msg ->
+        ColorPickerMsg msg ->
             let
-                ( m, c ) =
-                    ColorPicker.update msg model.colorPicker
+                ( m, colour ) =
+                    ColorPicker.update msg model.colour model.colorPicker
             in
-                { model | colorPicker = m }
+                { model
+                    | colorPicker = m
+                    , colour = colour |> Maybe.withDefault model.colour
+                }
 
 view : Model -> Html Msg
 view model =
-    ColorPicker.view model.colorPicker |> Html.map CPMsg
+    ColorPicker.view model.myColour model.colorPicker
+        |> Html.map ColorPickerMsg
 ```
+
+## Example
 
 See it in action
 
@@ -44,8 +52,6 @@ $ npm install
 $ npm run dev
 Open http://localhost:3000
 ```
-
-
 
 ### To Do
 
