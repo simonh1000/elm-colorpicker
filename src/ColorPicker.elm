@@ -75,7 +75,7 @@ update message col (State model) =
         PickerClick ( x, y ) ->
             let
                 { hue, saturation, lightness, alpha } =
-                    Color.toHsl col
+                    safeToHsl col
 
                 newColour =
                     Color.hsl hue (toFloat x / 200) (1 - toFloat y / 150)
@@ -88,7 +88,7 @@ update message col (State model) =
         SliderClick ( x, _ ) ->
             let
                 { hue, saturation, lightness } =
-                    Color.toHsl col
+                    safeToHsl col
 
                 newColour =
                     Color.hsl (toFloat x / 200 * 2 * pi) saturation lightness
@@ -97,6 +97,18 @@ update message col (State model) =
 
         SliderMouseDown val ->
             ( State { model | sliderMouseDown = val }, Nothing )
+
+
+safeToHsl : Color -> { hue : Float, saturation : Float, lightness : Float, alpha : Float }
+safeToHsl col =
+    let
+        ({ hue, saturation, lightness } as hsl) =
+            Color.toHsl col
+    in
+        if isNaN saturation then
+            { hue = hue, saturation = 0, lightness = lightness, alpha = 1 }
+        else
+            hsl
 
 
 {-| Renders the color picker on screen
@@ -120,7 +132,7 @@ picker : Color -> Model -> Svg Msg
 picker col model =
     let
         { hue, saturation, lightness } =
-            Color.toHsl col
+            safeToHsl col
 
         colHex =
             color2Hex <| Color.hsl hue 1 0.5
@@ -165,7 +177,7 @@ pickerIndicator : Color -> Model -> Html Msg
 pickerIndicator col model =
     let
         { hue, saturation, lightness } =
-            Color.toHsl col
+            safeToHsl col
 
         cx_ =
             saturation * 200 - 3 |> round |> toString
@@ -229,7 +241,7 @@ sliderIndicator : Color -> Model -> Html Msg
 sliderIndicator col model =
     let
         { hue, saturation, lightness } =
-            Color.toHsl col
+            safeToHsl col
 
         xVal =
             -- shift by 4px to center on selected color
@@ -279,7 +291,7 @@ color2Hex col =
             |> (++) "#"
 
 
-{-| Converts `Color` to `String` (with preceding `#`).
+{-| Converts `String` to `Color`.
 Used internally and exposed because the public alternative is a library with multiple dependencies.
 -}
 hex2Color : String -> Maybe Color

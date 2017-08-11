@@ -1,13 +1,14 @@
 {
-    "version": "1.0.0",
+    "version": "1.1.0",
     "summary": "elm-colorpicker",
     "repository": "https://github.com/simonh1000/elm-colorpicker.git",
     "license": "ISC",
-    "description": "Color Picker in pure Elm",
     "source-directories": [
         "src"
     ],
-    "exposed-modules": ["ColorPicker"],
+    "exposed-modules": [
+        "ColorPicker"
+    ],
     "dependencies": {
         "elm-lang/core": "5.0.0 <= v < 6.0.0",
         "elm-lang/html": "2.0.0 <= v < 3.0.0",
