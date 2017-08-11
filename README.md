@@ -2,7 +2,7 @@
 
 An Elm library to help you implement a color picker tool without relying upon the presence - or [otherwise](http://caniuse.com/#feat=input-color) - of a built in browser widget.
 
-<img src="screenshot.png" alt="screen shot">
+<img src="https://github.com/simonh1000/elm-colorpicker/raw/master/screenshot.png" alt="screen shot">
 
 ## Example
 
@@ -67,3 +67,4 @@ Open http://localhost:3000
  * https://github.com/bendc/color-picker
  * https://github.com/DavidDurman/FlexiColorPicker
  * https://stackoverflow.com/questions/17242144/javascript-convert-hsb-hsv-color-to-rgb-accurately?answertab=votes#tab-top
+ * Elm-sortable-table's API

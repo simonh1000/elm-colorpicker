@@ -1,8 +1,8 @@
-module ColorPicker exposing (State, Msg, empty, update, view, color2Hex)
+module ColorPicker exposing (State, Msg, empty, update, view, color2Hex, hex2Color)
 
 {-| An Elm library to help you implement a color picker tool.
 
-@docs State, Msg, empty, update, view, color2Hex
+@docs State, Msg, empty, update, view, color2Hex, hex2Color
 
 -}
 
@@ -91,7 +91,7 @@ update message col (State model) =
                     Color.toHsl col
 
                 newColour =
-                    Color.hsl (normaliseHue x) saturation lightness
+                    Color.hsl (toFloat x / 200 * 2 * pi) saturation lightness
             in
                 ( State model, Just newColour )
 
@@ -122,21 +122,14 @@ picker col model =
         { hue, saturation, lightness } =
             Color.toHsl col
 
+        colHex =
+            color2Hex <| Color.hsl hue 1 0.5
+
         cx_ =
             saturation * 200 |> round |> toString
 
         cy_ =
             150 - lightness * 150 |> round |> toString
-
-        { red, green, blue } =
-            Color.hsl hue 1 0.5
-                |> Color.toRgb
-
-        colHex =
-            [ red, green, blue ]
-                |> List.map padHex
-                |> String.join ""
-                |> (++) "#"
     in
         svg
             [ width "200", height "150" ]
@@ -155,9 +148,7 @@ picker col model =
                     , stop [ offset "1", stopColor "#000", stopOpacity "1" ] []
                     ]
                 ]
-            , rect
-                [ id "picker", width "200", height "150", fill colHex ]
-                []
+            , rect [ id "picker", width "200", height "150", fill colHex ] []
             , rect [ width "200", height "150", fill "url(#pickerSaturation)" ] []
             , rect
                 ([ width "200"
@@ -259,19 +250,18 @@ sliderIndicator col model =
 
 
 dragAttrs : Bool -> (Bool -> Msg) -> (( Int, Int ) -> Msg) -> List (Svg.Attribute Msg)
-dragAttrs toggle mdMsg clMsg =
-    if toggle then
-        [ onMouseDown (mdMsg True)
-        , onMouseUp (mdMsg False)
-        , onMouseMovePos clMsg
-        , onClickSvg clMsg
-        ]
-    else
-        [ onMouseDown (mdMsg True)
-        , onMouseUp (mdMsg False)
-        , onMouseOut (mdMsg False)
-        , onClickSvg clMsg
-        ]
+dragAttrs mouseDown mdMsg clMsg =
+    let
+        common =
+            [ onMouseDown (mdMsg True)
+            , onMouseUp (mdMsg False)
+            , onClickSvg clMsg
+            ]
+    in
+        if mouseDown then
+            onMouseMovePos clMsg :: common
+        else
+            onMouseOut (mdMsg False) :: common
 
 
 {-| Converts `Color` to `String` (with preceding `#`).
@@ -289,6 +279,26 @@ color2Hex col =
             |> (++) "#"
 
 
+{-| Converts `Color` to `String` (with preceding `#`).
+Used internally and exposed because the public alternative is a library with multiple dependencies.
+-}
+hex2Color : String -> Maybe Color
+hex2Color s =
+    let
+        hex =
+            String.toLower s
+
+        conv begin end =
+            String.slice begin end >> Hex.fromString
+    in
+        case ( conv 1 3 hex, conv 3 5 hex, conv 5 7 hex ) of
+            ( Ok rr, Ok gg, Ok bb ) ->
+                Just <| Color.rgb rr gg bb
+
+            _ ->
+                Nothing
+
+
 
 -- Styles
 
@@ -303,11 +313,6 @@ pickerStyles =
 
 
 -- Helpers
-
-
-normaliseHue : Int -> Float
-normaliseHue x =
-    toFloat x / 200 * 2 * pi
 
 
 padHex : Int -> String
