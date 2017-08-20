@@ -16,7 +16,7 @@ import Svg.Events exposing (..)
 import Hex
 
 
-{-| Opaque type. Needs to be added to your model. You will also need to store a color in your model
+{-| Opaque type. Needs to be added to your model. You will also need to store a `Color` in your model
 
     type alias Model =
         { myColour : Color
@@ -74,7 +74,7 @@ update message col (State model) =
     case message of
         PickerClick ( x, y ) ->
             let
-                { hue, saturation, lightness, alpha } =
+                { hue } =
                     safeToHsl col
 
                 newColour =
@@ -87,7 +87,7 @@ update message col (State model) =
 
         SliderClick ( x, _ ) ->
             let
-                { hue, saturation, lightness } =
+                { saturation, lightness } =
                     safeToHsl col
 
                 newColour =
@@ -123,25 +123,19 @@ view col (State model) =
             , ( "display", "inline-block" )
             ]
         ]
-        [ div [ pickerStyles ] [ picker col model, pickerIndicator col model ]
-        , div [ pickerStyles ] [ slider model, sliderIndicator col model ]
+        [ div [ pickerStyles ] [ picker col model, pickerIndicator col ]
+        , div [ pickerStyles ] [ slider model, sliderIndicator col ]
         ]
 
 
 picker : Color -> Model -> Svg Msg
 picker col model =
     let
-        { hue, saturation, lightness } =
+        { hue } =
             safeToHsl col
 
         colHex =
             color2Hex <| Color.hsl hue 1 0.5
-
-        cx_ =
-            saturation * 200 |> round |> toString
-
-        cy_ =
-            150 - lightness * 150 |> round |> toString
     in
         svg
             [ width "200", height "150" ]
@@ -173,10 +167,10 @@ picker col model =
             ]
 
 
-pickerIndicator : Color -> Model -> Html Msg
-pickerIndicator col model =
+pickerIndicator : Color -> Html Msg
+pickerIndicator col =
     let
-        { hue, saturation, lightness } =
+        { saturation, lightness } =
             safeToHsl col
 
         cx_ =
@@ -237,10 +231,10 @@ slider { sliderMouseDown } =
             ]
 
 
-sliderIndicator : Color -> Model -> Html Msg
-sliderIndicator col model =
+sliderIndicator : Color -> Html Msg
+sliderIndicator col =
     let
-        { hue, saturation, lightness } =
+        { hue } =
             safeToHsl col
 
         xVal =
