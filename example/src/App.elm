@@ -15,7 +15,7 @@ type alias Model =
 init : Model
 init =
     { colorPicker = ColorPicker.empty
-    , colour = Color.rgb 255 255 255
+    , colour = Color.rgb 0 0 0
     }
 
 

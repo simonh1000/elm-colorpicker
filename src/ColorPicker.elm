@@ -90,8 +90,15 @@ update message col (State model) =
                 { saturation, lightness } =
                     safeToHsl col
 
+                hue =
+                    toFloat x / 200 * 2 * pi
+
                 newColour =
-                    Color.hsl (toFloat x / 200 * 2 * pi) saturation lightness
+                    -- Enable 'escape from black'
+                    if saturation == 0 && lightness < 0.02 then
+                        Color.hsl hue 0.5 0.5
+                    else
+                        Color.hsl hue saturation lightness
             in
                 ( State model, Just newColour )
 
@@ -173,6 +180,12 @@ pickerIndicator col =
         { saturation, lightness } =
             safeToHsl col
 
+        borderColor =
+            if lightness > 0.95 then
+                "#cccccc"
+            else
+                "#ffffff"
+
         cx_ =
             saturation * 200 - 3 |> round |> toString
 
@@ -185,7 +198,7 @@ pickerIndicator col =
                 , ( "top", cy_ ++ "px" )
                 , ( "left", cx_ ++ "px" )
                 , ( "border-radius", "100%" )
-                , ( "border", "2px solid white" )
+                , ( "border", "2px solid " ++ borderColor )
                 , ( "width", "6px" )
                 , ( "height", "6px" )
                 , ( "pointer-events", "none" )
