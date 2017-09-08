@@ -8,6 +8,7 @@ module ColorPicker exposing (State, Msg, empty, update, view, color2Hex, hex2Col
 
 import Html exposing (..)
 import Html.Attributes as Attr
+import Html.Events exposing (onWithOptions, defaultOptions)
 import Json.Decode as Json exposing (..)
 import Color exposing (Color)
 import Svg exposing (..)
@@ -31,6 +32,7 @@ type State
 type alias Model =
     { pickerMouseDown : Bool
     , sliderMouseDown : Bool
+    , lastHue : Float
     }
 
 
@@ -47,6 +49,7 @@ empty =
     State
         { pickerMouseDown = False
         , sliderMouseDown = False
+        , lastHue = pi
         }
 
 
@@ -57,6 +60,7 @@ type Msg
     | PickerMouseDown Bool
     | SliderClick ( Int, Int )
     | SliderMouseDown Bool
+    | NoOp
 
 
 {-| On each update, ColorPicker returns its model and (where appropriate) the new selected colo(u)r.
@@ -75,7 +79,7 @@ update message col (State model) =
         PickerClick ( x, y ) ->
             let
                 { hue } =
-                    safeToHsl col
+                    safeToHsl model.lastHue col
 
                 newColour =
                     Color.hsl hue (toFloat x / 200) (1 - toFloat y / 150)
@@ -88,7 +92,7 @@ update message col (State model) =
         SliderClick ( x, _ ) ->
             let
                 { saturation, lightness } =
-                    safeToHsl col
+                    safeToHsl model.lastHue col
 
                 hue =
                     toFloat x / 200 * 2 * pi
@@ -100,22 +104,35 @@ update message col (State model) =
                     else
                         Color.hsl hue saturation lightness
             in
-                ( State model, Just newColour )
+                ( State { model | lastHue = hue }, Just newColour )
 
         SliderMouseDown val ->
             ( State { model | sliderMouseDown = val }, Nothing )
 
+        NoOp ->
+            ( State model, Nothing )
 
-safeToHsl : Color -> { hue : Float, saturation : Float, lightness : Float, alpha : Float }
-safeToHsl col =
+
+safeToHsl : Float -> Color -> { hue : Float, saturation : Float, lightness : Float, alpha : Float }
+safeToHsl lastHue col =
     let
         ({ hue, saturation, lightness } as hsl) =
             Color.toHsl col
+
+        -- Handle bugs in Color library
+        hue_ =
+            if isNaN hue then
+                lastHue
+            else
+                hue
+
+        sat_ =
+            if isNaN saturation then
+                0
+            else
+                saturation
     in
-        if isNaN saturation then
-            { hue = hue, saturation = 0, lightness = lightness, alpha = 1 }
-        else
-            hsl
+        { hue = hue_, saturation = sat_, lightness = lightness, alpha = 1 }
 
 
 {-| Renders the color picker on screen
@@ -129,9 +146,10 @@ view col (State model) =
             , ( "padding", "2px" )
             , ( "display", "inline-block" )
             ]
+        , bubblePreventer
         ]
-        [ div [ pickerStyles ] [ picker col model, pickerIndicator col ]
-        , div [ pickerStyles ] [ slider model, sliderIndicator col ]
+        [ div [ pickerStyles ] [ picker col model, pickerIndicator model.lastHue col ]
+        , div [ pickerStyles ] [ slider model, sliderIndicator model.lastHue col ]
         ]
 
 
@@ -139,7 +157,7 @@ picker : Color -> Model -> Svg Msg
 picker col model =
     let
         { hue } =
-            safeToHsl col
+            safeToHsl model.lastHue col
 
         colHex =
             color2Hex <| Color.hsl hue 1 0.5
@@ -174,11 +192,11 @@ picker col model =
             ]
 
 
-pickerIndicator : Color -> Html Msg
-pickerIndicator col =
+pickerIndicator : Float -> Color -> Html Msg
+pickerIndicator lastHue col =
     let
         { saturation, lightness } =
-            safeToHsl col
+            safeToHsl lastHue col
 
         borderColor =
             if lightness > 0.95 then
@@ -190,7 +208,7 @@ pickerIndicator col =
             saturation * 200 - 3 |> round |> toString
 
         cy_ =
-            150 - lightness * 150 - 2 |> round |> toString
+            150 - lightness * 150 - 3 |> round |> toString
     in
         div
             [ Attr.style
@@ -244,11 +262,11 @@ slider { sliderMouseDown } =
             ]
 
 
-sliderIndicator : Color -> Html Msg
-sliderIndicator col =
+sliderIndicator : Float -> Color -> Html Msg
+sliderIndicator lastHue col =
     let
         { hue } =
-            safeToHsl col
+            safeToHsl lastHue col
 
         xVal =
             -- shift by 4px to center on selected color
@@ -269,18 +287,18 @@ sliderIndicator col =
 
 
 dragAttrs : Bool -> (Bool -> Msg) -> (( Int, Int ) -> Msg) -> List (Svg.Attribute Msg)
-dragAttrs mouseDown mdMsg clMsg =
+dragAttrs mouseDown mouseDownMsg clickMsg =
     let
         common =
-            [ onMouseDown (mdMsg True)
-            , onMouseUp (mdMsg False)
-            , onClickSvg clMsg
+            [ onMouseDown (mouseDownMsg True)
+            , onMouseUp (mouseDownMsg False)
+            , onClickSvg clickMsg
             ]
     in
         if mouseDown then
-            onMouseMovePos clMsg :: common
+            onMouseMovePos clickMsg :: common
         else
-            onMouseOut (mdMsg False) :: common
+            onMouseOut (mouseDownMsg False) :: common
 
 
 {-| Converts `Color` to `String` (with preceding `#`).
@@ -345,6 +363,15 @@ padHex x =
 onClickSvg : (( Int, Int ) -> Msg) -> Svg.Attribute Msg
 onClickSvg msgCreator =
     on "click" (Json.map msgCreator decodePoint)
+
+
+{-| Hack to prevent SVG click events bubble through to rest of app. SVG does not have an onWithOptions
+-}
+bubblePreventer : Html.Attribute Msg
+bubblePreventer =
+    onWithOptions "click"
+        { defaultOptions | stopPropagation = True }
+        (Json.succeed NoOp)
 
 
 onMouseMovePos : (( Int, Int ) -> Msg) -> Svg.Attribute Msg
