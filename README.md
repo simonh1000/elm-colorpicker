@@ -38,7 +38,7 @@ update message model =
 
 view : Model -> Html Msg
 view model =
-    ColorPicker.view model.myColour model.colorPicker
+    ColorPicker.view model.colour model.colorPicker
         |> Html.map ColorPickerMsg
 ```
 
