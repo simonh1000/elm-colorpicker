@@ -1,9 +1,10 @@
-module App exposing (..)
+module Main exposing (Model, Msg(..), init, main, sts, update, view, viewAsColor, viewAsHex)
 
-import Html exposing (..)
-import Html.Attributes exposing (..)
+import Browser
 import Color exposing (Color)
 import ColorPicker
+import Html exposing (..)
+import Html.Attributes exposing (..)
 
 
 type alias Model =
@@ -41,10 +42,10 @@ update message model =
                     ColorPicker.update msg model.colour model.colorPicker
                         |> Debug.log ""
             in
-                { model
-                    | colorPicker = m
-                    , colour = colour |> Maybe.withDefault model.colour
-                }
+            { model
+                | colorPicker = m
+                , colour = colour |> Maybe.withDefault model.colour
+            }
 
         CPHexMsg msg ->
             case ColorPicker.hex2Color model.hex of
@@ -53,17 +54,17 @@ update message model =
                         ( m, colour ) =
                             ColorPicker.update msg model.colour model.colorPicker
                     in
-                        { model
-                            | colorPickerHex = m
-                            , hex = colour |> Maybe.map ColorPicker.color2Hex |> Maybe.withDefault model.hex
-                        }
+                    { model
+                        | colorPickerHex = m
+                        , hex = colour |> Maybe.map ColorPicker.color2Hex |> Maybe.withDefault model.hex
+                    }
 
                 Nothing ->
                     let
                         _ =
                             Debug.log "failed to convert" model.colour
                     in
-                        model
+                    model
 
 
 
@@ -79,6 +80,10 @@ view model =
         ]
 
 
+
+-- TODO add an example of a text field using onChange and Html.Keyed
+
+
 viewAsHex : Model -> Html Msg
 viewAsHex model =
     div []
@@ -90,7 +95,7 @@ viewAsHex model =
             Nothing ->
                 text <| "ColorPicker.hex2Color could not convert " ++ model.hex
         , div [] [ text model.hex ]
-        , div [ sts model.hex ] []
+        , div (sts model.hex) []
         ]
 
 
@@ -99,26 +104,29 @@ viewAsColor model =
         hex =
             ColorPicker.color2Hex model.colour
     in
-        div []
-            [ h1 [] [ text "Colour Picker - state as Color" ]
-            , div [] [ ColorPicker.view model.colour model.colorPicker |> Html.map ColorPickerMsg ]
-            , div [] [ text hex ]
-            , div [ sts hex ] []
-            ]
-
-
-sts hex =
-    style
-        [ ( "width", "50px" )
-        , ( "height", "50px" )
-        , ( "background-color", hex )
+    div []
+        [ h1 [] [ text "Colour Picker - state as Color" ]
+        , div [] [ ColorPicker.view model.colour model.colorPicker |> Html.map ColorPickerMsg ]
+        , div [] [ text hex ]
+        , div (sts hex) []
         ]
 
 
-main : Program Never Model Msg
+sts hex =
+    [ style "width" "50px"
+    , style "height" "50px"
+    , style "background-color" hex
+    ]
+
+
+
+--
+-- main : Program Int Model Msg
+
+
 main =
-    Html.beginnerProgram
-        { model = init
+    Browser.sandbox
+        { init = init
         , update = update
         , view = view
         }

@@ -1,7 +1,8 @@
 'use strict';
 
-require('bootstrap-loader');
 require("./styles.scss");
 
-var Elm = require('./App');
-var app = Elm.App.fullscreen();
+const {Elm} = require('./Main');
+var app = Elm.Main.init({
+        node: document.getElementById("elm-node")
+    });
