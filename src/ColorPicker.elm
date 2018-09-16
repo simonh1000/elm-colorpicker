@@ -11,7 +11,7 @@ import Hex
 import Html exposing (..)
 import Html.Attributes as Attr
 import Html.Events
-import Json.Decode as Json exposing (..)
+import Json.Decode as Decode exposing (..)
 import Svg exposing (..)
 import Svg.Attributes exposing (..)
 import Svg.Events exposing (..)
@@ -29,13 +29,6 @@ type State
     = State Model
 
 
-type alias Model =
-    { pickerMouseDown : Bool
-    , sliderMouseDown : Bool
-    , lastHue : Float
-    }
-
-
 {-| Initial ColorPicker state
 
     init =
@@ -46,11 +39,26 @@ type alias Model =
 -}
 empty : State
 empty =
-    State
-        { pickerMouseDown = False
-        , sliderMouseDown = False
-        , lastHue = pi
-        }
+    State blankModel
+
+
+{-| The model stores the hsl details as converting to/from hex all the time.
+But the user could easily change their hex between updates so we need to check that this has _probably_
+not happened.
+-}
+type alias Model =
+    { pickerMouseDown : Bool
+    , sliderMouseDown : Bool
+    , hue : Float -- 0.1 .. 1.0
+    }
+
+
+blankModel : Model
+blankModel =
+    { pickerMouseDown = False
+    , sliderMouseDown = False
+    , hue = 0.5
+    }
 
 
 {-| Opaque type. These messages are handled by `ColorPicker.update`
@@ -58,8 +66,8 @@ empty =
 type Msg
     = PickerClick ( Int, Int )
     | PickerMouseDown Bool
-    | SliderClick ( Int, Int )
-    | SliderMouseDown Bool
+    | OnHueChange ( Int, Int )
+    | OnHueMouseDown Bool
     | NoOp
 
 
@@ -79,7 +87,7 @@ update message col (State model) =
         PickerClick ( x, y ) ->
             let
                 { hue } =
-                    safeToHsl model.lastHue col
+                    safeToHsl model.hue col
 
                 newColour =
                     Color.hsl hue (toFloat x / 200) (1 - toFloat y / 150)
@@ -89,29 +97,30 @@ update message col (State model) =
         PickerMouseDown val ->
             ( State { model | pickerMouseDown = val }, Nothing )
 
-        SliderClick ( x, _ ) ->
+        OnHueChange ( x, _ ) ->
             let
                 ( state, newColour ) =
-                    handleSliderClick x col model
+                    handleHueChange x col model
             in
             ( State state, Just newColour )
 
-        SliderMouseDown val ->
+        OnHueMouseDown val ->
             ( State { model | sliderMouseDown = val }, Nothing )
 
         NoOp ->
             ( State model, Nothing )
 
 
-handleSliderClick : Int -> Color -> Model -> ( Model, Color )
-handleSliderClick x col model =
+handleHueChange : Int -> Color -> Model -> ( Model, Color )
+handleHueChange x col model =
     let
         { saturation, lightness } =
-            safeToHsl model.lastHue col
+            safeToHsl model.hue col
 
         hue =
-            toFloat x / 200 * 2 * pi
+            toFloat x / 200
 
+        -- * 2 * pi
         newColour =
             -- Enable 'escape from black'
             if saturation == 0 && lightness < 0.02 then
@@ -120,7 +129,7 @@ handleSliderClick x col model =
             else
                 Color.hsl hue saturation lightness
     in
-    ( { model | lastHue = hue }, newColour )
+    ( { model | hue = hue }, newColour )
 
 
 {-| Renders the color picker on screen
@@ -134,19 +143,20 @@ view col (State model) =
         , Attr.style "display" "inline-block"
         , bubblePreventer
         ]
-        [ div pickerStyles [ picker col model, pickerIndicator model.lastHue col ]
-        , div pickerStyles [ slider model, sliderIndicator model.lastHue col ]
+        [ div pickerStyles
+            [ satLightPalette col model
+            , pickerIndicator model.hue col
+            ]
+        , div pickerStyles [ huePalette model, hueMarker model.hue col ]
         ]
 
 
-picker : Color -> Model -> Svg Msg
-picker col model =
+satLightPalette : Color -> Model -> Svg Msg
+satLightPalette col model =
     let
-        { hue } =
-            safeToHsl model.lastHue col
-
-        colHex =
-            color2Hex <| Color.hsl hue 1 0.5
+        colCss =
+            Color.hsl model.hue 1 0.5
+                |> Color.toCssString
     in
     svg
         [ width "200", height "150" ]
@@ -165,7 +175,7 @@ picker col model =
                 , stop [ offset "1", stopColor "#000", stopOpacity "1" ] []
                 ]
             ]
-        , rect [ id "picker", width "200", height "150", fill colHex ] []
+        , rect [ width "200", height "150", fill colCss, id "picker" ] []
         , rect [ width "200", height "150", fill "url(#pickerSaturation)" ] []
         , rect
             ([ width "200"
@@ -178,11 +188,13 @@ picker col model =
         ]
 
 
+{-| pick saturation & lightness
+-}
 pickerIndicator : Float -> Color -> Html Msg
-pickerIndicator lastHue col =
+pickerIndicator hue col =
     let
         { saturation, lightness } =
-            safeToHsl lastHue col
+            safeToHsl hue col
 
         borderColor =
             if lightness > 0.95 then
@@ -210,8 +222,8 @@ pickerIndicator lastHue col =
         []
 
 
-slider : Model -> Svg Msg
-slider { sliderMouseDown } =
+huePalette : Model -> Svg Msg
+huePalette { sliderMouseDown } =
     let
         mkStop ( os, sc ) =
             stop [ offset os, stopColor sc, stopOpacity "1" ] []
@@ -241,22 +253,29 @@ slider { sliderMouseDown } =
              , height "100%"
              , fill "url(#gradient-hsv)"
              ]
-                ++ dragAttrs sliderMouseDown SliderMouseDown SliderClick
+                ++ dragAttrs sliderMouseDown OnHueMouseDown OnHueChange
             )
             []
         ]
 
 
-sliderIndicator : Float -> Color -> Html Msg
-sliderIndicator lastHue col =
+{-| Select the hue
+-}
+hueMarker : Float -> Color -> Html Msg
+hueMarker lastHue col =
     let
         { hue } =
             safeToHsl lastHue col
-                |> Debug.log "sliderIndicator"
+
+        widgetWidth =
+            200
+
+        correction =
+            4
 
         xVal =
             -- shift by 4px to center on selected color
-            (hue / (2 * pi) * 200 - 4) |> round |> String.fromInt |> Debug.log "xVal"
+            (hue * widgetWidth - correction) |> round |> String.fromInt
     in
     div
         [ Attr.style "position" "absolute"
@@ -290,24 +309,24 @@ dragAttrs mouseDown mouseDownMsg clickMsg =
 -}
 bubblePreventer : Html.Attribute Msg
 bubblePreventer =
-    stopPropagationOn "click" <| Json.succeed ( NoOp, True )
+    stopPropagationOn "click" <| Decode.succeed ( NoOp, True )
 
 
 onMouseMovePos : (( Int, Int ) -> Msg) -> Svg.Attribute Msg
 onMouseMovePos msgCreator =
-    on "mousemove" (Json.map msgCreator decodePoint)
+    on "mousemove" (Decode.map msgCreator decodePoint)
 
 
 decodePoint : Decoder ( Int, Int )
 decodePoint =
     map2 (\a b -> ( a, b ))
-        (field "offsetX" Json.int)
-        (field "offsetY" Json.int)
+        (field "offsetX" Decode.int)
+        (field "offsetY" Decode.int)
 
 
 onClickSvg : (( Int, Int ) -> Msg) -> Svg.Attribute Msg
 onClickSvg msgCreator =
-    on "click" (Json.map msgCreator decodePoint)
+    on "click" (Decode.map msgCreator decodePoint)
 
 
 
@@ -335,7 +354,7 @@ color2Hex col =
             Color.toRgba col
     in
     [ red, green, blue ]
-        |> List.map (round >> padHex)
+        |> List.map ((*) 255 >> round >> padHex)
         |> String.join ""
         |> (++) "#"
 
@@ -350,38 +369,31 @@ hex2Color s =
             String.toLower s
 
         conv begin end =
-            String.slice begin end >> Hex.fromString
+            String.slice begin end >> Hex.fromString >> Result.map toFloat
     in
-    case ( conv 1 3 hex, conv 3 5 hex, conv 5 7 hex ) of
-        ( Ok rr, Ok gg, Ok bb ) ->
-            Just <| Color.rgb (toFloat rr) (toFloat gg) (toFloat bb)
+    if String.length s /= 7 then
+        Nothing
 
-        _ ->
-            Nothing
+    else
+        Result.map3 Color.rgb (conv 1 3 hex) (conv 3 5 hex) (conv 5 7 hex)
+            |> Result.toMaybe
 
 
+{-| Converts colour to
+-}
 safeToHsl : Float -> Color -> { hue : Float, saturation : Float, lightness : Float, alpha : Float }
 safeToHsl lastHue col =
     let
-        ({ hue, saturation, lightness } as hsl) =
+        ({ hue, saturation, lightness, alpha } as hsl) =
             Color.toHsla col
 
-        -- Handle bugs in Color library
         hue_ =
-            if isNaN hue then
-                lastHue
+            -- TODO if hue is close enough to lastHue then
+            lastHue
 
-            else
-                hue
-
-        sat_ =
-            if isNaN saturation then
-                0
-
-            else
-                saturation
+        -- else hue
     in
-    { hue = hue_, saturation = sat_, lightness = lightness, alpha = 1 }
+    { hue = hue_, saturation = saturation, lightness = lightness, alpha = alpha }
 
 
 padHex : Int -> String

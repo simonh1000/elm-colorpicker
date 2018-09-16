@@ -1,4 +1,4 @@
-module Main exposing (Model, Msg(..), init, main, sts, update, view, viewAsColor, viewAsHex)
+module Main exposing (main)
 
 import Browser
 import Color exposing (Color)
@@ -8,19 +8,19 @@ import Html.Attributes exposing (..)
 
 
 type alias Model =
-    { colorPicker : ColorPicker.State
+    { colour : Color
+    , colorPicker : ColorPicker.State
     , colorPickerHex : ColorPicker.State
     , hex : String
-    , colour : Color
     }
 
 
 init : Model
 init =
-    { colorPicker = ColorPicker.empty
+    { colour = Color.rgb 0.5 0.5 0.5
+    , colorPicker = ColorPicker.empty
+    , hex = "#3bd5d5"
     , colorPickerHex = ColorPicker.empty
-    , hex = "#000000"
-    , colour = Color.rgb 0 0 0
     }
 
 
@@ -35,12 +35,11 @@ type Msg
 
 update : Msg -> Model -> Model
 update message model =
-    case Debug.log "" message of
+    case message of
         ColorPickerMsg msg ->
             let
                 ( m, colour ) =
                     ColorPicker.update msg model.colour model.colorPicker
-                        |> Debug.log ""
             in
             { model
                 | colorPicker = m
@@ -84,6 +83,8 @@ view model =
 -- TODO add an example of a text field using onChange and Html.Keyed
 
 
+{-| Using the model where state is stored as a Hex
+-}
 viewAsHex : Model -> Html Msg
 viewAsHex model =
     div []
@@ -99,6 +100,8 @@ viewAsHex model =
         ]
 
 
+{-| Using the model where state is stored as a Color
+-}
 viewAsColor model =
     let
         hex =
@@ -121,7 +124,6 @@ sts hex =
 
 
 --
--- main : Program Int Model Msg
 
 
 main =
