@@ -59,6 +59,7 @@ Open http://localhost:3000
 
 ### Changelog
 
+ * 1.1.3 : 0.19
  * 1.0.0 : Initial release
 
 
