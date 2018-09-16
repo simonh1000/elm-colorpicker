@@ -1,8 +1,8 @@
-module ColorPicker exposing (State, Msg, empty, update, view, color2Hex, hex2Color, safeToHsl)
+module ColorPicker exposing (State, Msg, empty, update, view, color2Hex, hex2Color)
 
 {-| An Elm library to help you implement a color picker tool.
 
-@docs State, Msg, empty, update, view, color2Hex, hex2Color, safeToHsl
+@docs State, Msg, empty, update, view, color2Hex, hex2Color
 
 -}
 
