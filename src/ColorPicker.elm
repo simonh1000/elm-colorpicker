@@ -67,6 +67,7 @@ type Msg
     = PickerClick ( Int, Int )
     | PickerMouseDown Bool
     | OnHueChange ( Int, Int )
+    | OnOpacityChange ( Int, Int )
     | OnHueMouseDown Bool
     | NoOp
 
@@ -107,6 +108,9 @@ update message col (State model) =
         OnHueMouseDown val ->
             ( State { model | sliderMouseDown = val }, Nothing )
 
+        OnOpacityChange ( x, _ ) ->
+            ( State model, Nothing )
+
         NoOp ->
             ( State model, Nothing )
 
@@ -136,30 +140,43 @@ handleHueChange x col model =
 -}
 view : Color -> State -> Html Msg
 view col (State model) =
-    div
-        [ Attr.id "color-picker"
-        , Attr.style "background-color" "white"
-        , Attr.style "padding" "2px"
-        , Attr.style "display" "inline-block"
-        , bubblePreventer
-        ]
-        [ div pickerStyles
-            [ satLightPalette col model
-            , pickerIndicator model.hue col
-            ]
-        , div pickerStyles [ huePalette model, hueMarker model.hue col ]
-        ]
-
-
-satLightPalette : Color -> Model -> Svg Msg
-satLightPalette col model =
     let
         colCss =
             Color.hsl model.hue 1 0.5
                 |> Color.toCssString
     in
+    div
+        [ Attr.style "background-color" "white"
+        , Attr.style "padding" "6px"
+        , Attr.style "display" "inline-block"
+        , Attr.style "border-radius" "5px"
+        , Attr.style "box-shadow" "rgba(0, 0, 0, 0.15) 0px 0px 0px 1px, rgba(0, 0, 0, 0.15) 0px 8px 16px"
+        , Attr.class "color-picker-container"
+        , bubblePreventer
+        ]
+        [ div pickerStyles
+            [ satLightPalette colCss model
+            , pickerIndicator model.hue col
+            ]
+        , div pickerStyles
+            [ huePalette model
+            , hueMarker model.hue col
+            ]
+        , div pickerStyles
+            [ opacityPalette colCss model
+
+            -- , hueMarker model.hue col
+            ]
+        ]
+
+
+satLightPalette : String -> Model -> Svg Msg
+satLightPalette colCss model =
     svg
-        [ width "200", height "150" ]
+        [ width "200"
+        , height "150"
+        , class "main-picker"
+        ]
         [ defs
             []
             [ linearGradient
@@ -240,7 +257,10 @@ huePalette { sliderMouseDown } =
             ]
     in
     svg
-        [ width "200", height "20" ]
+        [ width "200"
+        , height "15"
+        , class "hue-picker"
+        ]
         [ defs []
             [ linearGradient
                 [ id "gradient-hsv", x1 "100%", y1 "0%", x2 "0%", y2 "0%" ]
@@ -256,6 +276,49 @@ huePalette { sliderMouseDown } =
                 ++ dragAttrs sliderMouseDown OnHueMouseDown OnHueChange
             )
             []
+        ]
+
+
+opacityPalette : String -> Model -> Svg Msg
+opacityPalette colCss { sliderMouseDown } =
+    let
+        mkStop ( os, sc, op ) =
+            stop [ offset os, stopColor sc, stopOpacity op ] []
+
+        stops : List ( String, String, String )
+        stops =
+            [ ( "0%", colCss, "1" )
+            , ( "100%", colCss, "0" )
+            ]
+    in
+    div
+        [ Attr.style "background-image" "linear-gradient(45deg, #808080 25%, transparent 25%), linear-gradient(-45deg, #808080 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #808080 75%), linear-gradient(-45deg, transparent 75%, #808080 75%)"
+        , Attr.style "background-size" "12px 12px"
+        , Attr.style "background-position" "0 0, 0 6px, 6px -6px, -6px 0px"
+        , Attr.style "width" "200px"
+        , Attr.style "height" "12px"
+        , Attr.class "opacity-picker"
+        ]
+        [ svg
+            [ width "100%"
+            , height "100%"
+            ]
+            [ defs []
+                [ linearGradient
+                    [ id "gradient-opacity", x1 "100%", y1 "0%", x2 "0%", y2 "0%" ]
+                    (stops |> List.map mkStop)
+                ]
+            , rect
+                ([ x "0"
+                 , y "0"
+                 , width "100%"
+                 , height "100%"
+                 , fill "url(#gradient-opacity)"
+                 ]
+                    ++ dragAttrs sliderMouseDown OnHueMouseDown OnOpacityChange
+                )
+                []
+            ]
         ]
 
 
@@ -279,11 +342,12 @@ hueMarker lastHue col =
     in
     div
         [ Attr.style "position" "absolute"
-        , Attr.style "top" "-3px"
+        , Attr.style "top" "1px"
         , Attr.style "left" (xVal ++ "px")
-        , Attr.style "border" "3px solid #ddd"
-        , Attr.style "height" "26px"
-        , Attr.style "width" "9px"
+        , Attr.style "border" "1px solid #ddd"
+        , Attr.style "background-color" "#ffffff"
+        , Attr.style "height" "11px"
+        , Attr.style "width" "5px"
         , Attr.style "pointer-events" "none"
         ]
         []
@@ -390,8 +454,6 @@ safeToHsl lastHue col =
         hue_ =
             -- TODO if hue is close enough to lastHue then
             lastHue
-
-        -- else hue
     in
     { hue = hue_, saturation = saturation, lightness = lightness, alpha = alpha }
 
