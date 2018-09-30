@@ -4,6 +4,8 @@ module ColorPicker exposing (State, Msg, empty, update, view, color2Hex, hex2Col
 
 @docs State, Msg, empty, update, view, color2Hex, hex2Color
 
+The main picker is for saturation and lightness, while the sliders below are for hie and opacity respectively.
+
 -}
 
 import Color exposing (Color)
@@ -67,15 +69,21 @@ blankModel =
     }
 
 
+
+-- ------------------------------
+-- U P D A T E
+-- ------------------------------
+
+
 {-| Opaque type. These messages are handled by `ColorPicker.update`
 -}
 type Msg
-    = PickerClick ( Int, Int )
-    | PickerMouseDown Bool
-    | OnHueChange ( Int, Int )
-    | OnOpacityChange ( Int, Int )
+    = SatLightMouseDown Bool
     | OnHueMouseDown Bool
     | OnOpacityMouseDown Bool
+    | OnSatLightChange MouseInfo
+    | OnHueChange MouseInfo
+    | OnOpacityChange MouseInfo
     | NoOp
 
 
@@ -92,40 +100,71 @@ type Msg
 update : Msg -> Color -> State -> ( State, Maybe Color )
 update message col (State model) =
     case message of
-        PickerClick ( x, y ) ->
-            let
-                { hue } =
-                    safeToHsl model.hue col
-
-                newColour =
-                    Color.hsl hue (toFloat x / widgetWidth) (1 - toFloat y / 150)
-            in
-            ( State model, Just newColour )
-
-        PickerMouseDown val ->
+        SatLightMouseDown val ->
             ( State { model | pickerMouseDown = val }, Nothing )
-
-        OnHueChange ( x, _ ) ->
-            let
-                ( state, newColour ) =
-                    handleHueChange x col model
-            in
-            ( State state, Just newColour )
 
         OnHueMouseDown val ->
             ( State { model | hueSliderMouseDown = val }, Nothing )
 
-        OnOpacityChange ( x, _ ) ->
+        OnOpacityMouseDown val ->
+            ( State { model | opacitySliderMouseDown = val }, Nothing )
+
+        OnSatLightChange mouseInfo ->
+            handleSatLightChange col model mouseInfo
+                |> Tuple.mapBoth State Just
+
+        OnHueChange { x } ->
+            handleHueChange x col model
+                |> Tuple.mapBoth State Just
+
+        OnOpacityChange { x, mousePressed } ->
+            handleOpacityChange col model x mousePressed
+                |> Tuple.mapBoth State Just
+
+        NoOp ->
             ( State model, Nothing )
 
-        _ ->
-            ( State model, Nothing )
+
+handleSatLightChange : Color -> Model -> MouseInfo -> ( Model, Color )
+handleSatLightChange col model { x, y, mousePressed } =
+    let
+        hsla =
+            Color.toHsla col
+
+        newColour =
+            { hsla
+                | saturation = toFloat x / widgetWidth
+                , lightness = 1 - toFloat y / 150
+            }
+                |> Color.fromHsla
+    in
+    ( model, newColour )
+
+
+handleOpacityChange : Color -> Model -> Int -> Bool -> ( Model, Color )
+handleOpacityChange col model x mousePressed =
+    if mousePressed && model.opacitySliderMouseDown then
+        let
+            hsla =
+                Color.toHsla col
+
+            newColour =
+                { hsla | alpha = toFloat x / widgetWidth }
+                    |> Color.fromHsla
+        in
+        ( model, newColour )
+
+    else if not mousePressed && model.opacitySliderMouseDown then
+        ( { model | opacitySliderMouseDown = False }, col )
+
+    else
+        ( model, col )
 
 
 handleHueChange : Int -> Color -> Model -> ( Model, Color )
 handleHueChange x col model =
     let
-        { saturation, lightness } =
+        { saturation, lightness, alpha } =
             safeToHsl model.hue col
 
         hue =
@@ -138,9 +177,15 @@ handleHueChange x col model =
                 Color.hsl hue 0.5 0.5
 
             else
-                Color.hsl hue saturation lightness
+                Color.hsla hue saturation lightness alpha
     in
     ( { model | hue = hue }, newColour )
+
+
+
+-- ------------------------------
+-- V I E W
+-- ------------------------------
 
 
 {-| Renders the color picker on screen
@@ -151,6 +196,9 @@ view col (State model) =
         colCss =
             Color.hsl model.hue 1 0.5
                 |> Color.toCssString
+
+        { hue, alpha } =
+            Color.toHsla col
     in
     div
         [ Attr.style "background-color" "white"
@@ -171,7 +219,7 @@ view col (State model) =
             ]
         , div (checkedBkgStyles ++ pickerStyles ++ sliderContainerStyles "opacity")
             [ opacityPalette colCss model
-            , hueMarker 0.5 col
+            , alphaMarker alpha
             ]
         ]
 
@@ -206,7 +254,7 @@ satLightPalette colCss model =
              , height "150"
              , fill "url(#pickerBrightness)"
              ]
-                ++ dragAttrs model.pickerMouseDown PickerMouseDown PickerClick
+                ++ dragAttrs model.pickerMouseDown SatLightMouseDown OnSatLightChange
             )
             []
         ]
@@ -344,13 +392,34 @@ hueMarker lastHue col =
     div (Attr.style "left" (xVal ++ "px") :: markerAttrs) []
 
 
-dragAttrs : Bool -> (Bool -> Msg) -> (( Int, Int ) -> Msg) -> List (Svg.Attribute Msg)
+alphaMarker : Float -> Html Msg
+alphaMarker alpha =
+    let
+        correction =
+            4
+
+        xVal =
+            -- shift by 4px to center on selected color
+            (alpha * widgetWidth - correction) |> round |> String.fromInt
+    in
+    div (Attr.style "left" (xVal ++ "px") :: markerAttrs) []
+
+
+
+-- --------------------------
+-- Event handlers
+-- --------------------------
+
+
+dragAttrs : Bool -> (Bool -> Msg) -> (MouseInfo -> Msg) -> List (Svg.Attribute Msg)
 dragAttrs mouseDown mouseDownMsg clickMsg =
     let
         common =
             [ onMouseDown (mouseDownMsg True)
             , onMouseUp (mouseDownMsg False)
             , onClickSvg clickMsg
+
+            -- , onMouseEnterStillPressed mouseDownMsg
             ]
     in
     if mouseDown then
@@ -358,6 +427,44 @@ dragAttrs mouseDown mouseDownMsg clickMsg =
 
     else
         onMouseOut (mouseDownMsg False) :: common
+
+
+{-| Hack to prevent SVG click events bubble through to rest of app. SVG does not have an onWithOptions
+-}
+bubblePreventer : Html.Attribute Msg
+bubblePreventer =
+    -- stopPropagationOn "click" <| Decode.fail "dont do more"
+    stopPropagationOn "click" <| Decode.succeed ( NoOp, True )
+
+
+onClickSvg : (MouseInfo -> Msg) -> Svg.Attribute Msg
+onClickSvg msgCreator =
+    on "click" (Decode.map msgCreator decodePoint)
+
+
+onMouseMovePos : (MouseInfo -> Msg) -> Svg.Attribute Msg
+onMouseMovePos msgCreator =
+    on "mousemove" (Decode.map msgCreator decodePoint)
+
+
+onMouseEnterStillPressed : (Bool -> Msg) -> Svg.Attribute Msg
+onMouseEnterStillPressed msgCreator =
+    on "mouseenter" (Decode.map ((/=) 0 >> msgCreator) <| Decode.field "buttons" Decode.int)
+
+
+type alias MouseInfo =
+    { x : Int
+    , y : Int
+    , mousePressed : Bool
+    }
+
+
+decodePoint : Decoder MouseInfo
+decodePoint =
+    map3 MouseInfo
+        (field "offsetX" Decode.int)
+        (field "offsetY" Decode.int)
+        (field "buttons" Decode.int |> Decode.map ((/=) 0))
 
 
 
@@ -406,31 +513,6 @@ markerAttrs =
     -- this is essental to enable dragging
     , Attr.style "pointer-events" "none"
     ]
-
-
-{-| Hack to prevent SVG click events bubble through to rest of app. SVG does not have an onWithOptions
--}
-bubblePreventer : Html.Attribute Msg
-bubblePreventer =
-    -- stopPropagationOn "click" <| Decode.succeed ( NoOp, True )
-    stopPropagationOn "click" <| Decode.fail "dont do more"
-
-
-onMouseMovePos : (( Int, Int ) -> Msg) -> Svg.Attribute Msg
-onMouseMovePos msgCreator =
-    on "mousemove" (Decode.map msgCreator decodePoint)
-
-
-decodePoint : Decoder ( Int, Int )
-decodePoint =
-    map2 (\a b -> ( a, b ))
-        (field "offsetX" Decode.int)
-        (field "offsetY" Decode.int)
-
-
-onClickSvg : (( Int, Int ) -> Msg) -> Svg.Attribute Msg
-onClickSvg msgCreator =
-    on "click" (Decode.map msgCreator decodePoint)
 
 
 

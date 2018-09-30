@@ -12,6 +12,7 @@ type alias Model =
     , colorPicker : ColorPicker.State
     , colorPickerHex : ColorPicker.State
     , hex : String
+    , colCss : String
     }
 
 
@@ -19,8 +20,9 @@ init : Model
 init =
     { colour = Color.rgb 0.5 0.5 0.5
     , colorPicker = ColorPicker.empty
-    , hex = "#3bd5d5"
     , colorPickerHex = ColorPicker.empty
+    , hex = "#3bd5d5"
+    , colCss = ""
     }
 
 
@@ -56,6 +58,7 @@ update message model =
                     { model
                         | colorPickerHex = m
                         , hex = colour |> Maybe.map ColorPicker.color2Hex |> Maybe.withDefault model.hex
+                        , colCss = colour |> Maybe.map Color.toCssString |> Maybe.withDefault model.hex
                     }
 
                 Nothing ->
@@ -95,8 +98,8 @@ viewAsHex model =
 
             Nothing ->
                 text <| "ColorPicker.hex2Color could not convert " ++ model.hex
-        , div [] [ text model.hex ]
-        , div (sts model.hex) []
+        , div [] [ text model.colCss ]
+        , div (sts model.colCss) []
         ]
 
 
@@ -106,12 +109,15 @@ viewAsColor model =
     let
         hex =
             ColorPicker.color2Hex model.colour
+
+        colCss =
+            Color.toCssString model.colour
     in
     div []
         [ h1 [] [ text "Colour Picker - state as Color" ]
         , div [] [ ColorPicker.view model.colour model.colorPicker |> Html.map ColorPickerMsg ]
-        , div [] [ text hex ]
-        , div (sts hex) []
+        , div [] [ text colCss ]
+        , div (sts colCss) []
         ]
 
 
