@@ -98,7 +98,8 @@ type MouseTarget
 {-| Opaque type. These messages are handled by `ColorPicker.update`
 -}
 type Msg
-    = SetMouseTarget MouseTarget
+    = SetMouseTarget MouseTarget -- onMouseUp
+    | OnMouseDown MouseTarget MouseInfo
     | OnMouseMove MouseTarget MouseInfo
     | OnClick MouseTarget MouseInfo
     | NoOp
@@ -125,10 +126,10 @@ update_ message col model =
     let
         handleMouseMove mouseTarget mouseInfo =
             if mouseInfo.mousePressed && model.mouseTarget == mouseTarget then
-                ( model, calcNewColour mouseTarget mouseInfo )
+                ( setHue mouseTarget mouseInfo model, calcNewColour mouseTarget mouseInfo )
 
             else if not mouseInfo.mousePressed && model.mouseTarget == mouseTarget then
-                ( { model | mouseTarget = Unpressed }, Nothing )
+                ( setMouseTarget Unpressed model, Nothing )
 
             else
                 ( model, Nothing )
@@ -149,29 +150,33 @@ update_ message col model =
     in
     case message of
         SetMouseTarget mouseTarget ->
-            ( { model | mouseTarget = mouseTarget }, Nothing )
+            ( setMouseTarget mouseTarget model, Nothing )
+
+        OnMouseDown mouseTarget mouseInfo ->
+            ( setMouseTarget mouseTarget model, calcNewColour mouseTarget mouseInfo )
 
         OnMouseMove mouseTarget mouseInfo ->
             handleMouseMove mouseTarget mouseInfo
 
         OnClick mouseTarget mouseInfo ->
-            let
-                m =
-                    if mouseTarget == HueSlider then
-                        setHue mouseInfo model
-
-                    else
-                        model
-            in
-            ( m, calcNewColour mouseTarget mouseInfo )
+            ( setHue mouseTarget mouseInfo model, calcNewColour mouseTarget mouseInfo )
 
         NoOp ->
             ( model, Nothing )
 
 
-setHue : MouseInfo -> Model -> Model
-setHue mouseInfo model =
-    { model | hue = toFloat mouseInfo.x / widgetWidth }
+setMouseTarget : MouseTarget -> Model -> Model
+setMouseTarget mouseTarget model =
+    { model | mouseTarget = mouseTarget }
+
+
+setHue : MouseTarget -> MouseInfo -> Model -> Model
+setHue mouseTarget mouseInfo model =
+    if mouseTarget == HueSlider then
+        { model | hue = toFloat mouseInfo.x / widgetWidth }
+
+    else
+        model
 
 
 calcSatLight : Color -> Float -> MouseInfo -> Color
@@ -451,7 +456,7 @@ dragAttrs : MouseTarget -> MouseTarget -> (MouseInfo -> Msg) -> List (Svg.Attrib
 dragAttrs mouseTarget thisTgt onMoveMsg =
     let
         common =
-            [ onMouseDown <| SetMouseTarget thisTgt
+            [ onMouseDownPos <| OnMouseDown thisTgt
             , onMouseUp <| SetMouseTarget Unpressed
             , onClickSvg <| OnClick thisTgt
             ]
@@ -479,6 +484,11 @@ onClickSvg msgCreator =
 onMouseMovePos : (MouseInfo -> Msg) -> Svg.Attribute Msg
 onMouseMovePos msgCreator =
     on "mousemove" (Decode.map msgCreator decodePoint)
+
+
+onMouseDownPos : (MouseInfo -> Msg) -> Svg.Attribute Msg
+onMouseDownPos msgCreator =
+    on "mousedown" (Decode.map msgCreator decodePoint)
 
 
 type alias MouseInfo =
