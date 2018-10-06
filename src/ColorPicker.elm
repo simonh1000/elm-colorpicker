@@ -82,9 +82,7 @@ type MouseTarget
 -}
 type Msg
     = SetMouseTarget MouseTarget
-    | OnSatLightChange MouseInfo
-    | OnHueChange MouseInfo
-    | OnOpacityChange MouseInfo
+    | OnMouseMove MouseTarget MouseInfo
     | OnClick MouseTarget MouseInfo
     | NoOp
 
@@ -101,12 +99,18 @@ type Msg
 -}
 update : Msg -> Color -> State -> ( State, Maybe Color )
 update message col (State model) =
-    let
-        handleMouseMove tgt mouseInfo newCol =
-            if mouseInfo.mousePressed && model.mouseTarget == tgt then
-                ( model, Just newCol )
+    update_ message col model
+        |> Tuple.mapFirst State
 
-            else if not mouseInfo.mousePressed && model.mouseTarget == tgt then
+
+update_ : Msg -> Color -> Model -> ( Model, Maybe Color )
+update_ message col model =
+    let
+        handleMouseMove mouseTarget mouseInfo =
+            if mouseInfo.mousePressed && model.mouseTarget == mouseTarget then
+                ( model, Just <| calcNewColour mouseTarget col model.hue mouseInfo )
+
+            else if not mouseInfo.mousePressed && model.mouseTarget == mouseTarget then
                 ( { model | mouseTarget = Unpressed }, Nothing )
 
             else
@@ -126,24 +130,12 @@ update message col (State model) =
                 Unpressed ->
                     \_ _ _ -> col
     in
-    case Debug.log "" message of
+    case message of
         SetMouseTarget mouseTarget ->
-            ( State { model | mouseTarget = mouseTarget }, Nothing )
+            ( { model | mouseTarget = mouseTarget }, Nothing )
 
-        OnSatLightChange mouseInfo ->
-            calcSatLight col model.hue mouseInfo
-                |> handleMouseMove SatLight mouseInfo
-                |> Tuple.mapFirst State
-
-        OnHueChange mouseInfo ->
-            calcHue col model.hue mouseInfo
-                |> handleMouseMove SatLight mouseInfo
-                |> Tuple.mapFirst (setHue mouseInfo >> State)
-
-        OnOpacityChange mouseInfo ->
-            calcOpacity col model.hue mouseInfo
-                |> handleMouseMove OpacitySlider mouseInfo
-                |> Tuple.mapFirst State
+        OnMouseMove mouseTarget mouseInfo ->
+            handleMouseMove mouseTarget mouseInfo
 
         OnClick mouseTarget mouseInfo ->
             let
@@ -154,10 +146,10 @@ update message col (State model) =
                     else
                         model
             in
-            ( State m, Just <| calcNewColour mouseTarget col model.hue mouseInfo )
+            ( m, Just <| calcNewColour mouseTarget col model.hue mouseInfo )
 
         NoOp ->
-            ( State model, Nothing )
+            ( model, Nothing )
 
 
 setHue : MouseInfo -> Model -> Model
@@ -278,7 +270,7 @@ satLightPalette colCss model =
              , height "150"
              , fill "url(#pickerBrightness)"
              ]
-                ++ dragAttrs model.mouseTarget SatLight OnSatLightChange
+                ++ dragAttrs model.mouseTarget SatLight (OnMouseMove SatLight)
             )
             []
         ]
@@ -355,7 +347,7 @@ huePalette model =
              , height "100%"
              , fill "url(#gradient-hsv)"
              ]
-                ++ dragAttrs model.mouseTarget HueSlider OnHueChange
+                ++ dragAttrs model.mouseTarget HueSlider (OnMouseMove HueSlider)
             )
             []
         ]
@@ -392,7 +384,7 @@ opacityPalette colCss model =
              , height "100%"
              , fill "url(#gradient-opacity)"
              ]
-                ++ dragAttrs model.mouseTarget OpacitySlider OnOpacityChange
+                ++ dragAttrs model.mouseTarget OpacitySlider (OnMouseMove OpacitySlider)
             )
             []
         ]
@@ -442,8 +434,6 @@ dragAttrs mouseTarget thisTgt onMoveMsg =
             [ onMouseDown <| SetMouseTarget thisTgt
             , onMouseUp <| SetMouseTarget Unpressed
             , onClickSvg <| OnClick thisTgt
-
-            -- , onMouseEnterStillPressed mouseDownMsg
             ]
     in
     if mouseTarget == thisTgt then
