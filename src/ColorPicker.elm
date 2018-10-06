@@ -13,13 +13,13 @@ The main picker is for saturation and lightness, while the sliders below are for
 
 import Color exposing (Color)
 import Hex
-import Html exposing (..)
-import Html.Attributes as Attr
+import Html exposing (Html, div)
+import Html.Attributes as Attrs
 import Html.Events
-import Json.Decode as Decode exposing (..)
+import Json.Decode as Decode exposing (Decoder)
 import Svg exposing (..)
-import Svg.Attributes exposing (..)
-import Svg.Events exposing (..)
+import Svg.Attributes as SvgAttrs exposing (offset, stopColor, stopOpacity, x, x1, x2, y, y1, y2)
+import Svg.Events as SvgEvents
 
 
 widgetWidth =
@@ -51,18 +51,25 @@ empty =
     State blankModel
 
 
-init : Maybe Color -> State
-init mbCol =
-    case mbCol of
-        Just col ->
-            let
-                { hue } =
-                    Color.toHsla col
-            in
-            State { blankModel | hue = hue }
+{-| Initial ColorPicker state
 
-        Nothing ->
-            empty
+    init =
+        let
+            initColor =
+                Color.red
+        in
+        { myColour = initColor
+        , colorPicker = ColorPicker.init initColor
+        }
+
+-}
+init : Color -> State
+init col =
+    let
+        { hue } =
+            Color.toHsla col
+    in
+    State { blankModel | hue = hue }
 
 
 {-| The model stores the hue because dark colours has indistinguihsable hues.
@@ -98,10 +105,10 @@ type MouseTarget
 {-| Opaque type. These messages are handled by `ColorPicker.update`
 -}
 type Msg
-    = SetMouseTarget MouseTarget -- onMouseUp
-    | OnMouseDown MouseTarget MouseInfo
+    = OnMouseDown MouseTarget MouseInfo
     | OnMouseMove MouseTarget MouseInfo
     | OnClick MouseTarget MouseInfo
+    | OnMouseUp
     | NoOp
 
 
@@ -149,9 +156,6 @@ update_ message col model =
                     \_ -> Nothing
     in
     case message of
-        SetMouseTarget mouseTarget ->
-            ( setMouseTarget mouseTarget model, Nothing )
-
         OnMouseDown mouseTarget mouseInfo ->
             ( model
                 |> setMouseTarget mouseTarget
@@ -164,6 +168,9 @@ update_ message col model =
 
         OnClick mouseTarget mouseInfo ->
             ( setHue mouseTarget mouseInfo model, calcNewColour mouseTarget mouseInfo )
+
+        OnMouseUp ->
+            ( setMouseTarget Unpressed model, Nothing )
 
         NoOp ->
             ( model, Nothing )
@@ -201,7 +208,7 @@ calcHue : Color -> Float -> MouseInfo -> Color
 calcHue col currHue { x, mousePressed } =
     let
         ({ saturation, lightness, alpha } as hsla) =
-            safeToHsl currHue col
+            Color.toHsla col
 
         hue =
             toFloat x / widgetWidth
@@ -246,21 +253,21 @@ view col (State model) =
             Color.toHsla col
     in
     div
-        [ Attr.style "background-color" "white"
-        , Attr.style "padding" "6px"
-        , Attr.style "display" "inline-block"
-        , Attr.style "border-radius" "5px"
-        , Attr.style "box-shadow" "rgba(0, 0, 0, 0.15) 0px 0px 0px 1px, rgba(0, 0, 0, 0.15) 0px 8px 16px"
-        , Attr.class "color-picker-container"
+        [ Attrs.style "background-color" "white"
+        , Attrs.style "padding" "6px"
+        , Attrs.style "display" "inline-block"
+        , Attrs.style "border-radius" "5px"
+        , Attrs.style "box-shadow" "rgba(0, 0, 0, 0.15) 0px 0px 0px 1px, rgba(0, 0, 0, 0.15) 0px 8px 16px"
+        , Attrs.class "color-picker-container"
         , bubblePreventer
         ]
         [ div pickerStyles
             [ satLightPalette colCss model
-            , pickerIndicator model.hue col
+            , pickerIndicator col
             ]
         , div (pickerStyles ++ sliderContainerStyles "hue")
             [ huePalette model
-            , hueMarker model.hue col
+            , hueMarker model.hue
             ]
         , div (checkedBkgStyles ++ pickerStyles ++ sliderContainerStyles "opacity")
             [ opacityPalette colCss model
@@ -272,32 +279,32 @@ view col (State model) =
 satLightPalette : String -> Model -> Svg Msg
 satLightPalette colCss model =
     svg
-        [ width (String.fromInt widgetWidth)
-        , height "150"
-        , class "main-picker"
-        , display "block"
+        [ SvgAttrs.width (String.fromInt widgetWidth)
+        , SvgAttrs.height "150"
+        , SvgAttrs.class "main-picker"
+        , SvgAttrs.display "block"
         ]
         [ defs
             []
             [ linearGradient
-                [ id "pickerSaturation" ]
+                [ SvgAttrs.id "pickerSaturation" ]
                 [ stop [ offset "0", stopColor "#808080", stopOpacity "1" ] []
                 , stop [ offset "1", stopColor "#808080", stopOpacity "0" ] []
                 ]
             , linearGradient
-                [ id "pickerBrightness", x1 "0", y1 "0", x2 "0", y2 "1" ]
+                [ SvgAttrs.id "pickerBrightness", x1 "0", y1 "0", x2 "0", y2 "1" ]
                 [ stop [ offset "0", stopColor "#fff", stopOpacity "1" ] []
                 , stop [ offset "0.499", stopColor "#fff", stopOpacity "0" ] []
                 , stop [ offset "0.5", stopColor "#000", stopOpacity "0" ] []
                 , stop [ offset "1", stopColor "#000", stopOpacity "1" ] []
                 ]
             ]
-        , rect [ width (String.fromInt widgetWidth), height "150", fill colCss, id "picker" ] []
-        , rect [ width (String.fromInt widgetWidth), height "150", fill "url(#pickerSaturation)" ] []
+        , rect [ SvgAttrs.width (String.fromInt widgetWidth), SvgAttrs.height "150", SvgAttrs.fill colCss, SvgAttrs.id "picker" ] []
+        , rect [ SvgAttrs.width (String.fromInt widgetWidth), SvgAttrs.height "150", SvgAttrs.fill "url(#pickerSaturation)" ] []
         , rect
-            ([ width (String.fromInt widgetWidth)
-             , height "150"
-             , fill "url(#pickerBrightness)"
+            ([ SvgAttrs.width (String.fromInt widgetWidth)
+             , SvgAttrs.height "150"
+             , SvgAttrs.fill "url(#pickerBrightness)"
              ]
                 ++ dragAttrs model.mouseTarget SatLight (OnMouseMove SatLight)
             )
@@ -307,11 +314,11 @@ satLightPalette colCss model =
 
 {-| pick saturation & lightness
 -}
-pickerIndicator : Float -> Color -> Html Msg
-pickerIndicator hue col =
+pickerIndicator : Color -> Html Msg
+pickerIndicator col =
     let
         { saturation, lightness } =
-            safeToHsl hue col
+            Color.toHsla col
 
         borderColor =
             if lightness > 0.95 then
@@ -327,14 +334,14 @@ pickerIndicator hue col =
             150 - lightness * 150 - 3 |> round |> String.fromInt
     in
     div
-        [ Attr.style "position" "absolute"
-        , Attr.style "top" (cy_ ++ "px")
-        , Attr.style "left" (cx_ ++ "px")
-        , Attr.style "border-radius" "100%"
-        , Attr.style "border" ("2px solid " ++ borderColor)
-        , Attr.style "width" "6px"
-        , Attr.style "height" "6px"
-        , Attr.style "pointer-events" "none"
+        [ Attrs.style "position" "absolute"
+        , Attrs.style "top" (cy_ ++ "px")
+        , Attrs.style "left" (cx_ ++ "px")
+        , Attrs.style "border-radius" "100%"
+        , Attrs.style "border" ("2px solid " ++ borderColor)
+        , Attrs.style "width" "6px"
+        , Attrs.style "height" "6px"
+        , Attrs.style "pointer-events" "none"
         ]
         []
 
@@ -363,18 +370,18 @@ huePalette model =
             ]
     in
     svg
-        (class "hue-picker" :: sliderStyles)
+        (SvgAttrs.class "hue-picker" :: sliderStyles)
         [ defs []
             [ linearGradient
-                [ id "gradient-hsv", x1 "100%", y1 "0%", x2 "0%", y2 "0%" ]
+                [ SvgAttrs.id "gradient-hsv", x1 "100%", y1 "0%", x2 "0%", y2 "0%" ]
                 (stops |> List.map mkStop)
             ]
         , rect
             ([ x "0"
              , y "0"
-             , width (String.fromInt widgetWidth)
-             , height "100%"
-             , fill "url(#gradient-hsv)"
+             , SvgAttrs.width (String.fromInt widgetWidth)
+             , SvgAttrs.height "100%"
+             , SvgAttrs.fill "url(#gradient-hsv)"
              ]
                 ++ dragAttrs model.mouseTarget HueSlider (OnMouseMove HueSlider)
             )
@@ -403,15 +410,15 @@ opacityPalette colCss model =
     svg sliderStyles
         [ defs []
             [ linearGradient
-                [ id "gradient-opacity", x1 "100%", y1 "0%", x2 "0%", y2 "0%" ]
+                [ SvgAttrs.id "gradient-opacity", x1 "100%", y1 "0%", x2 "0%", y2 "0%" ]
                 (stops |> List.map mkStop)
             ]
         , rect
             ([ x "0"
              , y "0"
-             , width (String.fromInt widgetWidth)
-             , height "100%"
-             , fill "url(#gradient-opacity)"
+             , SvgAttrs.width (String.fromInt widgetWidth)
+             , SvgAttrs.height "100%"
+             , SvgAttrs.fill "url(#gradient-opacity)"
              ]
                 ++ dragAttrs model.mouseTarget OpacitySlider (OnMouseMove OpacitySlider)
             )
@@ -421,20 +428,17 @@ opacityPalette colCss model =
 
 {-| Select the hue
 -}
-hueMarker : Float -> Color -> Html Msg
-hueMarker lastHue col =
+hueMarker : Float -> Html Msg
+hueMarker lastHue =
     let
-        { hue } =
-            safeToHsl lastHue col
-
         correction =
             4
 
         xVal =
             -- shift by 4px to center on selected color
-            (hue * widgetWidth - correction) |> round |> String.fromInt
+            (lastHue * widgetWidth - correction) |> round |> String.fromInt
     in
-    div (Attr.style "left" (xVal ++ "px") :: markerAttrs) []
+    div (Attrs.style "left" (xVal ++ "px") :: markerAttrs) []
 
 
 alphaMarker : Float -> Html Msg
@@ -447,7 +451,7 @@ alphaMarker alpha =
             -- shift by 4px to center on selected color
             (alpha * widgetWidth - correction) |> round |> String.fromInt
     in
-    div (Attr.style "left" (xVal ++ "px") :: markerAttrs) []
+    div (Attrs.style "left" (xVal ++ "px") :: markerAttrs) []
 
 
 
@@ -461,7 +465,7 @@ dragAttrs mouseTarget thisTgt onMoveMsg =
     let
         common =
             [ onMouseDownPos <| OnMouseDown thisTgt
-            , onMouseUp <| SetMouseTarget Unpressed
+            , SvgEvents.onMouseUp <| OnMouseUp
             , onClickSvg <| OnClick thisTgt
             ]
     in
@@ -472,27 +476,30 @@ dragAttrs mouseTarget thisTgt onMoveMsg =
         common
 
 
-{-| Hack to prevent SVG click events bubble through to rest of app. SVG does not have an onWithOptions
--}
-bubblePreventer : Html.Attribute Msg
-bubblePreventer =
-    -- stopPropagationOn "click" <| Decode.fail "dont do more"
-    stopPropagationOn "click" <| Decode.succeed ( NoOp, True )
-
-
-onClickSvg : (MouseInfo -> Msg) -> Svg.Attribute Msg
-onClickSvg msgCreator =
-    on "click" (Decode.map msgCreator decodePoint)
+onMouseDownPos : (MouseInfo -> Msg) -> Svg.Attribute Msg
+onMouseDownPos msgCreator =
+    SvgEvents.on "mousedown" (Decode.map msgCreator decodeMouseInfo)
 
 
 onMouseMovePos : (MouseInfo -> Msg) -> Svg.Attribute Msg
 onMouseMovePos msgCreator =
-    on "mousemove" (Decode.map msgCreator decodePoint)
+    SvgEvents.on "mousemove" (Decode.map msgCreator decodeMouseInfo)
 
 
-onMouseDownPos : (MouseInfo -> Msg) -> Svg.Attribute Msg
-onMouseDownPos msgCreator =
-    on "mousedown" (Decode.map msgCreator decodePoint)
+onClickSvg : (MouseInfo -> Msg) -> Svg.Attribute Msg
+onClickSvg msgCreator =
+    SvgEvents.on "click" (Decode.map msgCreator decodeMouseInfo)
+
+
+{-| Hack to prevent SVG click events bubble through to rest of app. SVG does not have an onWithOptions
+-}
+bubblePreventer : Html.Attribute Msg
+bubblePreventer =
+    Html.Events.stopPropagationOn "click" <| Decode.succeed ( NoOp, True )
+
+
+
+-- MouseInfo`
 
 
 type alias MouseInfo =
@@ -502,59 +509,63 @@ type alias MouseInfo =
     }
 
 
-decodePoint : Decoder MouseInfo
-decodePoint =
-    map3 MouseInfo
-        (field "offsetX" Decode.int)
-        (field "offsetY" Decode.int)
-        (field "buttons" Decode.int |> Decode.map ((/=) 0))
+decodeMouseInfo : Decoder MouseInfo
+decodeMouseInfo =
+    Decode.map3 MouseInfo
+        (Decode.field "offsetX" Decode.int)
+        (Decode.field "offsetY" Decode.int)
+        (Decode.field "buttons" Decode.int |> Decode.map ((/=) 0))
 
 
 
 -- Styles
 
 
+sliderContainerStyles : String -> List (Html.Attribute msg)
 sliderContainerStyles name =
-    [ Attr.style "width" (String.fromInt widgetWidth ++ "px")
-    , Attr.style "height" "12px"
-    , Attr.style "marginTop" "8px"
-    , Attr.class <| "color-picker-slider " ++ name
+    [ Attrs.style "width" (String.fromInt widgetWidth ++ "px")
+    , Attrs.style "height" "12px"
+    , Attrs.style "marginTop" "8px"
+    , Attrs.class <| "color-picker-slider " ++ name
     ]
 
 
+checkedBkgStyles : List (Html.Attribute msg)
 checkedBkgStyles =
-    [ Attr.style "background-size" "12px 12px"
-    , Attr.style "background-position" "0 0, 0 6px, 6px -6px, -6px 0px"
-    , Attr.style "background-image" "linear-gradient(45deg, #808080 25%, transparent 25%), linear-gradient(-45deg, #808080 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #808080 75%), linear-gradient(-45deg, transparent 75%, #808080 75%)"
-    ]
-
-
-sliderStyles =
-    [ width (String.fromInt widgetWidth)
-    , height "100%"
-    , display "block"
+    [ Attrs.style "background-size" "12px 12px"
+    , Attrs.style "background-position" "0 0, 0 6px, 6px -6px, -6px 0px"
+    , Attrs.style "background-image" "linear-gradient(45deg, #808080 25%, transparent 25%), linear-gradient(-45deg, #808080 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #808080 75%), linear-gradient(-45deg, transparent 75%, #808080 75%)"
     ]
 
 
 pickerStyles : List (Html.Attribute msg)
 pickerStyles =
-    [ Attr.style "cursor" "crosshair"
-    , Attr.style "position" "relative"
+    [ Attrs.style "cursor" "crosshair"
+    , Attrs.style "position" "relative"
     ]
 
 
+markerAttrs : List (Html.Attribute msg)
 markerAttrs =
-    [ Attr.style "position" "absolute"
-    , Attr.style "top" "1px"
-    , Attr.style "bottom" "1px"
-    , Attr.style "border" "1px solid #ddd"
-    , Attr.style "background-color" "#ffffff"
+    [ Attrs.style "position" "absolute"
+    , Attrs.style "top" "1px"
+    , Attrs.style "bottom" "1px"
+    , Attrs.style "border" "1px solid #ddd"
+    , Attrs.style "background-color" "#ffffff"
 
-    -- , Attr.style "height" "10px"
-    , Attr.style "width" "6px"
+    -- , Attrs.style "height" "10px"
+    , Attrs.style "width" "6px"
 
     -- this is essental to enable dragging
-    , Attr.style "pointer-events" "none"
+    , Attrs.style "pointer-events" "none"
+    ]
+
+
+sliderStyles : List (Svg.Attribute msg)
+sliderStyles =
+    [ SvgAttrs.width (String.fromInt widgetWidth)
+    , SvgAttrs.height "100%"
+    , SvgAttrs.display "block"
     ]
 
 
@@ -582,30 +593,19 @@ Used internally and exposed because the public alternative is a library with mul
 -}
 hex2Color : String -> Maybe Color
 hex2Color s =
-    let
-        hex =
-            String.toLower s
-
-        conv begin end =
-            String.slice begin end >> Hex.fromString >> Result.map toFloat
-    in
     if String.length s /= 7 then
         Nothing
 
     else
+        let
+            hex =
+                String.toLower s
+
+            conv begin end =
+                String.slice begin end >> Hex.fromString >> Result.map toFloat
+        in
         Result.map3 Color.rgb (conv 1 3 hex) (conv 3 5 hex) (conv 5 7 hex)
             |> Result.toMaybe
-
-
-{-| Converts colour to
--}
-safeToHsl : Float -> Color -> { hue : Float, saturation : Float, lightness : Float, alpha : Float }
-safeToHsl lastHue col =
-    let
-        hsl =
-            Color.toHsla col
-    in
-    { hsl | hue = lastHue }
 
 
 padHex : Int -> String
