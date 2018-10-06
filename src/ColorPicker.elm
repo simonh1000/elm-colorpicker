@@ -108,7 +108,7 @@ update_ message col model =
     let
         handleMouseMove mouseTarget mouseInfo =
             if mouseInfo.mousePressed && model.mouseTarget == mouseTarget then
-                ( model, Just <| calcNewColour mouseTarget col model.hue mouseInfo )
+                ( model, calcNewColour mouseTarget mouseInfo )
 
             else if not mouseInfo.mousePressed && model.mouseTarget == mouseTarget then
                 ( { model | mouseTarget = Unpressed }, Nothing )
@@ -119,16 +119,16 @@ update_ message col model =
         calcNewColour mouseTarget =
             case mouseTarget of
                 SatLight ->
-                    calcSatLight
+                    Just << calcSatLight col model.hue
 
                 HueSlider ->
-                    calcHue
+                    Just << calcHue col model.hue
 
                 OpacitySlider ->
-                    calcOpacity
+                    Just << calcOpacity col model.hue
 
                 Unpressed ->
-                    \_ _ _ -> col
+                    \_ -> Nothing
     in
     case message of
         SetMouseTarget mouseTarget ->
@@ -146,7 +146,7 @@ update_ message col model =
                     else
                         model
             in
-            ( m, Just <| calcNewColour mouseTarget col model.hue mouseInfo )
+            ( m, calcNewColour mouseTarget mouseInfo )
 
         NoOp ->
             ( model, Nothing )
@@ -174,18 +174,21 @@ calcSatLight col currHue { x, y, mousePressed } =
 calcHue : Color -> Float -> MouseInfo -> Color
 calcHue col currHue { x, mousePressed } =
     let
-        { saturation, lightness, alpha } =
+        ({ saturation, lightness, alpha } as hsla) =
             safeToHsl currHue col
 
         hue =
             toFloat x / widgetWidth
-    in
-    -- Enable 'escape from black'
-    if saturation == 0 && lightness < 0.02 then
-        Color.hsla hue 0.5 0.5 alpha
 
-    else
-        Color.hsla hue saturation lightness alpha
+        newCol =
+            -- Enable 'escape from black'
+            if saturation == 0 && lightness < 0.02 then
+                { hsla | hue = hue, saturation = 0.5, lightness = 0.5 }
+
+            else
+                { hsla | hue = hue }
+    in
+    newCol |> Color.fromHsla
 
 
 calcOpacity : Color -> Float -> MouseInfo -> Color
@@ -199,6 +202,12 @@ calcOpacity col _ { x, mousePressed } =
 
 
 
+-- type alias HSLARecord =
+--     { hue : Float
+--     , saturation : Float
+--     , lightness : Float
+--     , alpha : Float
+--     }
 -- ------------------------------
 -- V I E W
 -- ------------------------------
