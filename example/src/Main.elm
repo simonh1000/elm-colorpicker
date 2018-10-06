@@ -16,12 +16,16 @@ type alias Model =
     }
 
 
+initColour =
+    Color.green
+
+
 init : Model
 init =
-    { colour = Color.rgb 0.5 0.5 0.5
-    , colorPicker = ColorPicker.empty
-    , colorPickerHex = ColorPicker.empty
-    , hex = "#3bd5d5"
+    { colour = initColour
+    , colorPicker = ColorPicker.init <| Just initColour
+    , colorPickerHex = ColorPicker.init <| Just initColour
+    , hex = ""
     , colCss = ""
     }
 
@@ -86,6 +90,41 @@ view model =
 -- TODO add an example of a text field using onChange and Html.Keyed
 
 
+{-| Using the model where state is stored as a Color
+-}
+viewAsColor model =
+    div []
+        [ h1 [] [ text "Colour Picker - state as Color" ]
+        , div [] [ ColorPicker.view model.colour model.colorPicker |> Html.map ColorPickerMsg ]
+        , div [] [ text <| viewCol model.colour ]
+        , div (sts <| Color.toCssString model.colour) []
+        ]
+
+
+viewCol col =
+    let
+        res =
+            Color.toHsla col
+    in
+    Debug.toString <|
+        { res
+            | hue = dec 3 res.hue
+            , saturation = dec 3 res.saturation
+            , lightness = dec 3 res.lightness
+        }
+
+
+dec len f =
+    let
+        exp =
+            10 ^ len
+    in
+    (f * exp)
+        |> round
+        |> toFloat
+        |> (\f_ -> f_ / exp)
+
+
 {-| Using the model where state is stored as a Hex
 -}
 viewAsHex : Model -> Html Msg
@@ -99,25 +138,8 @@ viewAsHex model =
             Nothing ->
                 text <| "ColorPicker.hex2Color could not convert " ++ model.hex
         , div [] [ text model.colCss ]
+        , div [] [ text model.colCss ]
         , div (sts model.colCss) []
-        ]
-
-
-{-| Using the model where state is stored as a Color
--}
-viewAsColor model =
-    let
-        hex =
-            ColorPicker.color2Hex model.colour
-
-        colCss =
-            Color.toCssString model.colour
-    in
-    div []
-        [ h1 [] [ text "Colour Picker - state as Color" ]
-        , div [] [ ColorPicker.view model.colour model.colorPicker |> Html.map ColorPickerMsg ]
-        , div [] [ text colCss ]
-        , div (sts colCss) []
         ]
 
 

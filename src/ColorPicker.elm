@@ -1,4 +1,7 @@
-module ColorPicker exposing (State, Msg, empty, update, view, color2Hex, hex2Color)
+module ColorPicker exposing
+    ( State, Msg, empty, update, view, color2Hex, hex2Color
+    , init
+    )
 
 {-| An Elm library to help you implement a color picker tool.
 
@@ -46,6 +49,20 @@ type State
 empty : State
 empty =
     State blankModel
+
+
+init : Maybe Color -> State
+init mbCol =
+    case mbCol of
+        Just col ->
+            let
+                { hue } =
+                    Color.toHsla col
+            in
+            State { blankModel | hue = hue }
+
+        Nothing ->
+            empty
 
 
 {-| The model stores the hue because dark colours has indistinguihsable hues.
@@ -202,12 +219,6 @@ calcOpacity col _ { x, mousePressed } =
 
 
 
--- type alias HSLARecord =
---     { hue : Float
---     , saturation : Float
---     , lightness : Float
---     , alpha : Float
---     }
 -- ------------------------------
 -- V I E W
 -- ------------------------------
