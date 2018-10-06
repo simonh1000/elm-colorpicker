@@ -113,9 +113,9 @@ update message col (State model) =
             handleSatLightChange col model mouseInfo
                 |> Tuple.mapBoth State Just
 
-        OnHueChange { x } ->
-            handleHueChange x col model
-                |> Tuple.mapBoth State Just
+        OnHueChange mouseInfo ->
+            handleHueChange col model mouseInfo
+                |> Tuple.mapFirst State
 
         OnOpacityChange { x, mousePressed } ->
             handleOpacityChange col model x mousePressed
@@ -141,6 +141,33 @@ handleSatLightChange col model { x, y, mousePressed } =
     ( model, newColour )
 
 
+handleHueChange : Color -> Model -> MouseInfo -> ( Model, Maybe Color )
+handleHueChange col model { x, mousePressed } =
+    if mousePressed && model.hueSliderMouseDown then
+        let
+            { saturation, lightness, alpha } =
+                safeToHsl model.hue col
+
+            hue =
+                toFloat x / widgetWidth
+
+            newColour =
+                -- Enable 'escape from black'
+                if saturation == 0 && lightness < 0.02 then
+                    Color.hsl hue 0.5 0.5
+
+                else
+                    Color.hsla hue saturation lightness alpha
+        in
+        ( { model | hue = hue }, Just newColour )
+
+    else if not mousePressed && model.hueSliderMouseDown then
+        ( { model | hueSliderMouseDown = False }, Nothing )
+
+    else
+        ( model, Nothing )
+
+
 handleOpacityChange : Color -> Model -> Int -> Bool -> ( Model, Color )
 handleOpacityChange col model x mousePressed =
     if mousePressed && model.opacitySliderMouseDown then
@@ -159,27 +186,6 @@ handleOpacityChange col model x mousePressed =
 
     else
         ( model, col )
-
-
-handleHueChange : Int -> Color -> Model -> ( Model, Color )
-handleHueChange x col model =
-    let
-        { saturation, lightness, alpha } =
-            safeToHsl model.hue col
-
-        hue =
-            toFloat x / widgetWidth
-
-        -- * 2 * pi
-        newColour =
-            -- Enable 'escape from black'
-            if saturation == 0 && lightness < 0.02 then
-                Color.hsl hue 0.5 0.5
-
-            else
-                Color.hsla hue saturation lightness alpha
-    in
-    ( { model | hue = hue }, newColour )
 
 
 
