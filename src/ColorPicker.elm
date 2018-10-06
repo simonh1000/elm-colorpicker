@@ -48,25 +48,28 @@ empty =
     State blankModel
 
 
-{-| The model stores the hsl details as converting to/from hex all the time.
+{-| The model stores the hue because dark colours has indistinguihsable hues.
 But the user could easily change their hex between updates so we need to check that this has _probably_
 not happened.
 -}
 type alias Model =
-    { pickerMouseDown : Bool
-    , hueSliderMouseDown : Bool
-    , opacitySliderMouseDown : Bool
+    { mouseTarget : MouseTarget
     , hue : Float -- 0.1 .. 1.0
     }
 
 
 blankModel : Model
 blankModel =
-    { pickerMouseDown = False
-    , hueSliderMouseDown = False
-    , opacitySliderMouseDown = False
+    { mouseTarget = Unpressed
     , hue = 0.5
     }
+
+
+type MouseTarget
+    = Unpressed
+    | SatLight
+    | HueSlider
+    | OpacitySlider
 
 
 
@@ -78,12 +81,11 @@ blankModel =
 {-| Opaque type. These messages are handled by `ColorPicker.update`
 -}
 type Msg
-    = SatLightMouseDown Bool
-    | OnHueMouseDown Bool
-    | OnOpacityMouseDown Bool
+    = SetMouseTarget MouseTarget
     | OnSatLightChange MouseInfo
     | OnHueChange MouseInfo
     | OnOpacityChange MouseInfo
+    | OnClick MouseTarget MouseInfo
     | NoOp
 
 
@@ -99,100 +101,80 @@ type Msg
 -}
 update : Msg -> Color -> State -> ( State, Maybe Color )
 update message col (State model) =
-    case message of
-        SatLightMouseDown val ->
-            ( State { model | pickerMouseDown = val }, Nothing )
+    let
+        handleMouseMove tgt mouseInfo newCol =
+            if mouseInfo.mousePressed && model.mouseTarget == tgt then
+                ( model, Just newCol )
 
-        OnHueMouseDown val ->
-            ( State { model | hueSliderMouseDown = val }, Nothing )
+            else if not mouseInfo.mousePressed && model.mouseTarget == tgt then
+                ( { model | mouseTarget = Unpressed }, Nothing )
 
-        OnOpacityMouseDown val ->
-            ( State { model | opacitySliderMouseDown = val }, Nothing )
+            else
+                ( model, Nothing )
+    in
+    case Debug.log "" message of
+        SetMouseTarget mouseTarget ->
+            ( State { model | mouseTarget = mouseTarget }, Nothing )
 
         OnSatLightChange mouseInfo ->
-            handleSatLightChange col model mouseInfo
+            calcSatLight col model.hue mouseInfo
+                |> handleMouseMove SatLight mouseInfo
                 |> Tuple.mapFirst State
 
         OnHueChange mouseInfo ->
-            handleHueChange col model mouseInfo
-                |> Tuple.mapFirst State
+            let
+                updateHue m =
+                    { m | hue = toFloat mouseInfo.x / widgetWidth }
+            in
+            calcHue col model.hue mouseInfo
+                |> handleMouseMove SatLight mouseInfo
+                |> Tuple.mapFirst (updateHue >> State)
 
         OnOpacityChange mouseInfo ->
-            handleOpacityChange col model mouseInfo
+            calcOpacity col mouseInfo
+                |> handleMouseMove OpacitySlider mouseInfo
                 |> Tuple.mapFirst State
 
-        NoOp ->
+        _ ->
             ( State model, Nothing )
 
 
-handleSatLightChange : Color -> Model -> MouseInfo -> ( Model, Maybe Color )
-handleSatLightChange col model { x, y, mousePressed } =
-    if mousePressed && model.pickerMouseDown then
-        let
-            hsla =
-                Color.toHsla col
-
-            newColour =
-                { hsla
-                    | saturation = toFloat x / widgetWidth
-                    , lightness = 1 - toFloat y / 150
-                }
-                    |> Color.fromHsla
-        in
-        ( model, Just newColour )
-
-    else if not mousePressed && model.pickerMouseDown then
-        ( { model | pickerMouseDown = False }, Nothing )
-
-    else
-        ( model, Nothing )
+calcSatLight col hue { x, y, mousePressed } =
+    let
+        hsla =
+            Color.toHsla col
+    in
+    { hsla
+        | hue = hue
+        , saturation = toFloat x / widgetWidth
+        , lightness = 1 - toFloat y / 150
+    }
+        |> Color.fromHsla
 
 
-handleHueChange : Color -> Model -> MouseInfo -> ( Model, Maybe Color )
-handleHueChange col model { x, mousePressed } =
-    if mousePressed && model.hueSliderMouseDown then
-        let
-            { saturation, lightness, alpha } =
-                safeToHsl model.hue col
+calcHue col currHue { x, mousePressed } =
+    let
+        { saturation, lightness, alpha } =
+            safeToHsl currHue col
 
-            hue =
-                toFloat x / widgetWidth
-
-            newColour =
-                -- Enable 'escape from black'
-                if saturation == 0 && lightness < 0.02 then
-                    Color.hsla hue 0.5 0.5 alpha
-
-                else
-                    Color.hsla hue saturation lightness alpha
-        in
-        ( { model | hue = hue }, Just newColour )
-
-    else if not mousePressed && model.hueSliderMouseDown then
-        ( { model | hueSliderMouseDown = False }, Nothing )
+        hue =
+            toFloat x / widgetWidth
+    in
+    -- Enable 'escape from black'
+    if saturation == 0 && lightness < 0.02 then
+        Color.hsla hue 0.5 0.5 alpha
 
     else
-        ( model, Nothing )
+        Color.hsla hue saturation lightness alpha
 
 
-handleOpacityChange : Color -> Model -> MouseInfo -> ( Model, Maybe Color )
-handleOpacityChange col model { x, mousePressed } =
-    if mousePressed && model.opacitySliderMouseDown then
-        let
-            hsla =
-                Color.toHsla col
-
-            newColour =
-                { hsla | alpha = toFloat x / widgetWidth }
-                    |> Color.fromHsla
-        in
-        ( model, Just newColour )
-
-    else if not mousePressed && model.opacitySliderMouseDown then
-        ( { model | opacitySliderMouseDown = False }, Nothing )
-
-    else
-        ( model, Nothing )
+calcOpacity col { x, mousePressed } =
+    let
+        hsla =
+            Color.toHsla col
+    in
+    { hsla | alpha = toFloat x / widgetWidth }
+        |> Color.fromHsla
 
 
 
@@ -267,7 +249,7 @@ satLightPalette colCss model =
              , height "150"
              , fill "url(#pickerBrightness)"
              ]
-                ++ dragAttrs model.pickerMouseDown SatLightMouseDown OnSatLightChange
+                ++ dragAttrs model.mouseTarget SatLight OnSatLightChange
             )
             []
         ]
@@ -314,7 +296,7 @@ pickerIndicator hue col =
 
 
 huePalette : Model -> Svg Msg
-huePalette { hueSliderMouseDown } =
+huePalette model =
     let
         mkStop ( os, sc ) =
             stop [ offset os, stopColor sc, stopOpacity "1" ] []
@@ -344,7 +326,7 @@ huePalette { hueSliderMouseDown } =
              , height "100%"
              , fill "url(#gradient-hsv)"
              ]
-                ++ dragAttrs hueSliderMouseDown OnHueMouseDown OnHueChange
+                ++ dragAttrs model.mouseTarget HueSlider OnHueChange
             )
             []
         ]
@@ -357,7 +339,7 @@ huePalette { hueSliderMouseDown } =
 
 
 opacityPalette : String -> Model -> Svg Msg
-opacityPalette colCss { opacitySliderMouseDown } =
+opacityPalette colCss model =
     let
         mkStop ( os, sc, op ) =
             stop [ offset os, stopColor sc, stopOpacity op ] []
@@ -381,7 +363,7 @@ opacityPalette colCss { opacitySliderMouseDown } =
              , height "100%"
              , fill "url(#gradient-opacity)"
              ]
-                ++ dragAttrs opacitySliderMouseDown OnOpacityMouseDown OnOpacityChange
+                ++ dragAttrs model.mouseTarget OpacitySlider OnOpacityChange
             )
             []
         ]
@@ -424,22 +406,22 @@ alphaMarker alpha =
 -- --------------------------
 
 
-dragAttrs : Bool -> (Bool -> Msg) -> (MouseInfo -> Msg) -> List (Svg.Attribute Msg)
-dragAttrs mouseDown mouseDownMsg clickMsg =
+dragAttrs : MouseTarget -> MouseTarget -> (MouseInfo -> Msg) -> List (Svg.Attribute Msg)
+dragAttrs mouseTarget thisTgt onMoveMsg =
     let
         common =
-            [ onMouseDown (mouseDownMsg True)
-            , onMouseUp (mouseDownMsg False)
-            , onClickSvg clickMsg
+            [ onMouseDown <| SetMouseTarget thisTgt
+            , onMouseUp <| SetMouseTarget Unpressed
+            , onClickSvg <| OnClick thisTgt
 
             -- , onMouseEnterStillPressed mouseDownMsg
             ]
     in
-    if mouseDown then
-        onMouseMovePos clickMsg :: common
+    if mouseTarget == thisTgt then
+        onMouseMovePos onMoveMsg :: common
 
     else
-        onMouseOut (mouseDownMsg False) :: common
+        common
 
 
 {-| Hack to prevent SVG click events bubble through to rest of app. SVG does not have an onWithOptions
@@ -458,11 +440,6 @@ onClickSvg msgCreator =
 onMouseMovePos : (MouseInfo -> Msg) -> Svg.Attribute Msg
 onMouseMovePos msgCreator =
     on "mousemove" (Decode.map msgCreator decodePoint)
-
-
-onMouseEnterStillPressed : (Bool -> Msg) -> Svg.Attribute Msg
-onMouseEnterStillPressed msgCreator =
-    on "mouseenter" (Decode.map ((/=) 0 >> msgCreator) <| Decode.field "buttons" Decode.int)
 
 
 type alias MouseInfo =
