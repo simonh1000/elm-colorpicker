@@ -153,7 +153,11 @@ update_ message col model =
             ( setMouseTarget mouseTarget model, Nothing )
 
         OnMouseDown mouseTarget mouseInfo ->
-            ( setMouseTarget mouseTarget model, calcNewColour mouseTarget mouseInfo )
+            ( model
+                |> setMouseTarget mouseTarget
+                |> setHue mouseTarget mouseInfo
+            , calcNewColour mouseTarget mouseInfo
+            )
 
         OnMouseMove mouseTarget mouseInfo ->
             handleMouseMove mouseTarget mouseInfo
