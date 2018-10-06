@@ -111,34 +111,41 @@ update message col (State model) =
 
         OnSatLightChange mouseInfo ->
             handleSatLightChange col model mouseInfo
-                |> Tuple.mapBoth State Just
+                |> Tuple.mapFirst State
 
         OnHueChange mouseInfo ->
             handleHueChange col model mouseInfo
                 |> Tuple.mapFirst State
 
-        OnOpacityChange { x, mousePressed } ->
-            handleOpacityChange col model x mousePressed
-                |> Tuple.mapBoth State Just
+        OnOpacityChange mouseInfo ->
+            handleOpacityChange col model mouseInfo
+                |> Tuple.mapFirst State
 
         NoOp ->
             ( State model, Nothing )
 
 
-handleSatLightChange : Color -> Model -> MouseInfo -> ( Model, Color )
+handleSatLightChange : Color -> Model -> MouseInfo -> ( Model, Maybe Color )
 handleSatLightChange col model { x, y, mousePressed } =
-    let
-        hsla =
-            Color.toHsla col
+    if mousePressed && model.pickerMouseDown then
+        let
+            hsla =
+                Color.toHsla col
 
-        newColour =
-            { hsla
-                | saturation = toFloat x / widgetWidth
-                , lightness = 1 - toFloat y / 150
-            }
-                |> Color.fromHsla
-    in
-    ( model, newColour )
+            newColour =
+                { hsla
+                    | saturation = toFloat x / widgetWidth
+                    , lightness = 1 - toFloat y / 150
+                }
+                    |> Color.fromHsla
+        in
+        ( model, Just newColour )
+
+    else if not mousePressed && model.pickerMouseDown then
+        ( { model | pickerMouseDown = False }, Nothing )
+
+    else
+        ( model, Nothing )
 
 
 handleHueChange : Color -> Model -> MouseInfo -> ( Model, Maybe Color )
@@ -154,7 +161,7 @@ handleHueChange col model { x, mousePressed } =
             newColour =
                 -- Enable 'escape from black'
                 if saturation == 0 && lightness < 0.02 then
-                    Color.hsl hue 0.5 0.5
+                    Color.hsla hue 0.5 0.5 alpha
 
                 else
                     Color.hsla hue saturation lightness alpha
@@ -168,8 +175,8 @@ handleHueChange col model { x, mousePressed } =
         ( model, Nothing )
 
 
-handleOpacityChange : Color -> Model -> Int -> Bool -> ( Model, Color )
-handleOpacityChange col model x mousePressed =
+handleOpacityChange : Color -> Model -> MouseInfo -> ( Model, Maybe Color )
+handleOpacityChange col model { x, mousePressed } =
     if mousePressed && model.opacitySliderMouseDown then
         let
             hsla =
@@ -179,13 +186,13 @@ handleOpacityChange col model x mousePressed =
                 { hsla | alpha = toFloat x / widgetWidth }
                     |> Color.fromHsla
         in
-        ( model, newColour )
+        ( model, Just newColour )
 
     else if not mousePressed && model.opacitySliderMouseDown then
-        ( { model | opacitySliderMouseDown = False }, col )
+        ( { model | opacitySliderMouseDown = False }, Nothing )
 
     else
-        ( model, col )
+        ( model, Nothing )
 
 
 
@@ -565,14 +572,10 @@ hex2Color s =
 safeToHsl : Float -> Color -> { hue : Float, saturation : Float, lightness : Float, alpha : Float }
 safeToHsl lastHue col =
     let
-        ({ hue, saturation, lightness, alpha } as hsl) =
+        hsl =
             Color.toHsla col
-
-        hue_ =
-            -- TODO if hue is close enough to lastHue then
-            lastHue
     in
-    { hue = hue_, saturation = saturation, lightness = lightness, alpha = alpha }
+    { hsl | hue = lastHue }
 
 
 padHex : Int -> String
