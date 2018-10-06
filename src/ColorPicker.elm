@@ -111,6 +111,20 @@ update message col (State model) =
 
             else
                 ( model, Nothing )
+
+        calcNewColour mouseTarget =
+            case mouseTarget of
+                SatLight ->
+                    calcSatLight
+
+                HueSlider ->
+                    calcHue
+
+                OpacitySlider ->
+                    calcOpacity
+
+                Unpressed ->
+                    \_ _ _ -> col
     in
     case Debug.log "" message of
         SetMouseTarget mouseTarget ->
@@ -122,36 +136,50 @@ update message col (State model) =
                 |> Tuple.mapFirst State
 
         OnHueChange mouseInfo ->
-            let
-                updateHue m =
-                    { m | hue = toFloat mouseInfo.x / widgetWidth }
-            in
             calcHue col model.hue mouseInfo
                 |> handleMouseMove SatLight mouseInfo
-                |> Tuple.mapFirst (updateHue >> State)
+                |> Tuple.mapFirst (setHue mouseInfo >> State)
 
         OnOpacityChange mouseInfo ->
-            calcOpacity col mouseInfo
+            calcOpacity col model.hue mouseInfo
                 |> handleMouseMove OpacitySlider mouseInfo
                 |> Tuple.mapFirst State
 
-        _ ->
+        OnClick mouseTarget mouseInfo ->
+            let
+                m =
+                    if mouseTarget == HueSlider then
+                        setHue mouseInfo model
+
+                    else
+                        model
+            in
+            ( State m, Just <| calcNewColour mouseTarget col model.hue mouseInfo )
+
+        NoOp ->
             ( State model, Nothing )
 
 
-calcSatLight col hue { x, y, mousePressed } =
+setHue : MouseInfo -> Model -> Model
+setHue mouseInfo model =
+    { model | hue = toFloat mouseInfo.x / widgetWidth }
+
+
+calcSatLight : Color -> Float -> MouseInfo -> Color
+calcSatLight col currHue { x, y, mousePressed } =
     let
         hsla =
             Color.toHsla col
     in
     { hsla
-        | hue = hue
+        | hue = currHue
         , saturation = toFloat x / widgetWidth
         , lightness = 1 - toFloat y / 150
     }
         |> Color.fromHsla
 
 
+calcHue : Color -> Float -> MouseInfo -> Color
 calcHue col currHue { x, mousePressed } =
     let
         { saturation, lightness, alpha } =
@@ -168,7 +196,8 @@ calcHue col currHue { x, mousePressed } =
         Color.hsla hue saturation lightness alpha
 
 
-calcOpacity col { x, mousePressed } =
+calcOpacity : Color -> Float -> MouseInfo -> Color
+calcOpacity col _ { x, mousePressed } =
     let
         hsla =
             Color.toHsla col
