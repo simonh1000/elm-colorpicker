@@ -1,7 +1,4 @@
-module ColorPicker exposing
-    ( State, Msg, empty, update, view, color2Hex, hex2Color
-    , init
-    )
+module ColorPicker exposing (State, Msg, empty, update, view, color2Hex, hex2Color)
 
 {-| An Elm library to help you implement a color picker tool.
 
@@ -49,27 +46,6 @@ type State
 empty : State
 empty =
     State blankModel
-
-
-{-| Initial ColorPicker state
-
-    init =
-        let
-            initColor =
-                Color.red
-        in
-        { myColour = initColor
-        , colorPicker = ColorPicker.init initColor
-        }
-
--}
-init : Color -> State
-init col =
-    let
-        { hue } =
-            Color.toHsla col
-    in
-    State { blankModel | hue = hue }
 
 
 {-| The model stores the hue because dark colours has indistinguihsable hues.
