@@ -1,9 +1,6 @@
 const path = require("path");
 const webpack = require("webpack");
 const merge = require("webpack-merge");
-const history = require('koa-connect-history-api-fallback');
-// const convert = require('koa-connect');
-// const proxy = require('http-proxy-middleware');
 
 const CopyWebpackPlugin = require("copy-webpack-plugin");
 const HTMLWebpackPlugin = require("html-webpack-plugin");
@@ -48,12 +45,13 @@ var common = {
             {
                 test: /\.scss$/,
                 exclude: [/elm-stuff/, /node_modules/],
-                loaders: ["style-loader", "css-loader", "sass-loader"]
+                // see https://github.com/webpack-contrib/css-loader#url
+                loaders: ["style-loader", "css-loader?url=false", "sass-loader"]
             },
             {
                 test: /\.css$/,
                 exclude: [/elm-stuff/, /node_modules/],
-                loaders: ["style-loader", "css-loader"]
+                loaders: ["style-loader", "css-loader?url=false"]
             },
             {
                 test: /\.woff(2)?(\?v=[0-9]\.[0-9]\.[0-9])?$/,
@@ -105,15 +103,16 @@ if (MODE === "development") {
                 }
             ]
         },
-        serve: {
+        devServer: {
             inline: true,
             stats: "errors-only",
-            content: [path.join(__dirname, "src/assets")],
-            add: (app, middleware, options) => {
-                // routes /xyz -> /index.html
-                app.use(history());
-                // e.g.
-                // app.use(convert(proxy('/api', { target: 'http://localhost:5000' })));
+            contentBase: path.join(__dirname, "src/assets"),
+            historyApiFallback: true,
+            before(app) {
+                // on port 3000
+                app.get("/test", function(req, res) {
+                    res.json({"result": "OK"});
+                });
             }
         }
     });
@@ -130,6 +129,7 @@ if (MODE === "production") {
                 verbose: true,
                 dry: false
             }),
+            // Copy static assets
             new CopyWebpackPlugin([
                 {
                     from: "src/assets"
@@ -153,12 +153,12 @@ if (MODE === "production") {
             {
                 test: /\.css$/,
                 exclude: [/elm-stuff/, /node_modules/],
-                loaders: [MiniCssExtractPlugin.loader, "css-loader"]
+                loaders: [MiniCssExtractPlugin.loader, "css-loader?url=false"]
             },
             {
                 test: /\.scss$/,
                 exclude: [/elm-stuff/, /node_modules/],
-                loaders: [MiniCssExtractPlugin.loader, "css-loader", "sass-loader"]
+                loaders: [MiniCssExtractPlugin.loader, "css-loader?url=false", "sass-loader"]
             }
             ]
         }

@@ -1,6 +1,6 @@
 # Elm ColorPicker widget
 
-An Elm library to help you implement a color picker tool without relying upon the presence - or [otherwise](http://caniuse.com/#feat=input-color) - of a built in browser widget.
+An Elm library to help you implement a colo(u)r picker tool without relying upon the presence - or [otherwise](http://caniuse.com/#feat=input-color) - of a built in browser widget.
 
 <img src="https://github.com/simonh1000/elm-colorpicker/raw/master/screenshot.png" alt="screen shot">
 
@@ -59,7 +59,8 @@ Open http://localhost:3000
 
 ### Changelog
 
- * 1.1.3 : 0.19
+ * 1.1.4 : add opacity picker; better styling; add classes to elements of widget; improved modelling under the hood
+ * 1.1.3 : 0.19 (with new Color library)
  * 1.0.0 : Initial release
 
 
