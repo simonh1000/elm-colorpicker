@@ -317,6 +317,9 @@ satLightPalette colCss model =
 pickerIndicator : Color -> Html Msg
 pickerIndicator col =
     let
+        adjustment =
+            4
+
         { saturation, lightness } =
             Color.toHsla col
 
@@ -328,10 +331,10 @@ pickerIndicator col =
                 "#ffffff"
 
         cx_ =
-            saturation * widgetWidth - 3 |> round |> String.fromInt
+            saturation * widgetWidth - adjustment |> round |> String.fromInt
 
         cy_ =
-            150 - lightness * 150 - 3 |> round |> String.fromInt
+            150 - lightness * 150 - adjustment |> round |> String.fromInt
     in
     div
         [ Attrs.style "position" "absolute"
@@ -583,7 +586,7 @@ color2Hex col =
             Color.toRgba col
     in
     [ red, green, blue ]
-        |> List.map ((*) 255 >> round >> padHex)
+        |> List.map (round >> padHex)
         |> String.join ""
         |> (++) "#"
 
