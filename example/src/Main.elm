@@ -10,6 +10,8 @@ import Html.Attributes exposing (..)
 type alias Model =
     { colour : Color
     , colorPicker : ColorPicker.State
+    , colour2 : Color
+    , colorPicker2 : ColorPicker.State
     , colCss : String
     }
 
@@ -22,6 +24,8 @@ init : Model
 init =
     { colour = initColour
     , colorPicker = ColorPicker.empty
+    , colour2 = initColour
+    , colorPicker2 = ColorPicker.empty
     , colCss = ""
     }
 
@@ -32,6 +36,7 @@ init =
 
 type Msg
     = ColorPickerMsg ColorPicker.Msg
+    | ColorPickerMsg2 ColorPicker.Msg
 
 
 update : Msg -> Model -> Model
@@ -47,6 +52,16 @@ update message model =
                 , colour = colour |> Maybe.withDefault model.colour
             }
 
+        ColorPickerMsg2 msg ->
+            let
+                ( m, colour ) =
+                    ColorPicker.update msg model.colour2 model.colorPicker2
+            in
+            { model
+                | colorPicker2 = m
+                , colour2 = colour |> Maybe.withDefault model.colour2
+            }
+
 
 
 -- VIEW
@@ -56,6 +71,12 @@ view : Model -> Html Msg
 view model =
     div [ class "container" ]
         [ viewAsColor model
+        , div []
+            [ h1 [] [ text "Colour Picker - state as Color" ]
+            , div [] [ ColorPicker.view model.colour2 model.colorPicker2 |> Html.map ColorPickerMsg2 ]
+            , div [] [ text <| viewCol model.colour2 ]
+            , div (sts <| Color.toCssString model.colour2) []
+            ]
         ]
 
 
