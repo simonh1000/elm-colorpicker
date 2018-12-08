@@ -54,22 +54,22 @@ not happened.
 -}
 type alias Model =
     { mouseTarget : MouseTarget
-    , hue : Float -- 0.1 .. 1.0
+    , hue : Maybe Float -- 0.0 .. 1.0
     }
 
 
 blankModel : Model
 blankModel =
     { mouseTarget = Unpressed
-    , hue = 0.5
+    , hue = Nothing
     }
 
 
 type MouseTarget
     = Unpressed
-    | SatLight
-    | HueSlider
-    | OpacitySlider
+    | SatLight Float -- hue, main area
+    | HueSlider -- 1st slider
+    | OpacitySlider -- 2nd slider
 
 
 
@@ -85,7 +85,7 @@ type Msg
     | OnMouseMove MouseTarget MouseInfo
     | OnClick MouseTarget MouseInfo
     | OnMouseUp
-    | NoOp
+    | NoOp -- used to prevent bubbling of messages
 
 
 {-| On each update, ColorPicker returns its model and (where appropriate) the new selected colo(u)r.
@@ -119,14 +119,14 @@ update_ message col model =
 
         calcNewColour mouseTarget =
             case mouseTarget of
-                SatLight ->
-                    Just << calcSatLight col model.hue
+                SatLight hue ->
+                    Just << calcSatLight col (Maybe.withDefault hue model.hue)
 
                 HueSlider ->
-                    Just << calcHue col model.hue
+                    Just << calcHue col
 
                 OpacitySlider ->
-                    Just << calcOpacity col model.hue
+                    \mouseInfo -> model.hue |> Maybe.map (\h -> calcOpacity col h mouseInfo)
 
                 Unpressed ->
                     \_ -> Nothing
@@ -159,11 +159,20 @@ setMouseTarget mouseTarget model =
 
 setHue : MouseTarget -> MouseInfo -> Model -> Model
 setHue mouseTarget mouseInfo model =
-    if mouseTarget == HueSlider then
-        { model | hue = toFloat mouseInfo.x / widgetWidth }
+    case mouseTarget of
+        HueSlider ->
+            { model | hue = Just <| toFloat mouseInfo.x / widgetWidth }
 
-    else
-        model
+        SatLight hue ->
+            case model.hue of
+                Just _ ->
+                    model
+
+                Nothing ->
+                    { model | hue = Just hue }
+
+        _ ->
+            model
 
 
 calcSatLight : Color -> Float -> MouseInfo -> Color
@@ -180,8 +189,8 @@ calcSatLight col currHue { x, y, mousePressed } =
         |> Color.fromHsla
 
 
-calcHue : Color -> Float -> MouseInfo -> Color
-calcHue col currHue { x, mousePressed } =
+calcHue : Color -> MouseInfo -> Color
+calcHue col { x, mousePressed } =
     let
         ({ saturation, lightness, alpha } as hsla) =
             Color.toHsla col
@@ -221,12 +230,15 @@ calcOpacity col _ { x, mousePressed } =
 view : Color -> State -> Html Msg
 view col (State model) =
     let
-        colCss =
-            Color.hsl model.hue 1 0.5
-                |> Color.toCssString
-
-        { hue, alpha } =
+        hsla =
             Color.toHsla col
+
+        hue =
+            Maybe.withDefault hsla.hue model.hue
+
+        colCss =
+            Color.hsl hue 1 0.5
+                |> Color.toCssString
     in
     div
         [ Attrs.style "background-color" "white"
@@ -238,22 +250,22 @@ view col (State model) =
         , bubblePreventer
         ]
         [ div pickerStyles
-            [ satLightPalette colCss model
+            [ satLightPalette hue colCss model.mouseTarget
             , pickerIndicator col
             ]
         , div (pickerStyles ++ sliderContainerStyles "hue")
-            [ huePalette model
-            , hueMarker model.hue
+            [ huePalette model.mouseTarget
+            , hueMarker hue
             ]
         , div (checkedBkgStyles ++ pickerStyles ++ sliderContainerStyles "opacity")
             [ opacityPalette colCss model
-            , alphaMarker alpha
+            , alphaMarker hsla.alpha
             ]
         ]
 
 
-satLightPalette : String -> Model -> Svg Msg
-satLightPalette colCss model =
+satLightPalette : Float -> String -> MouseTarget -> Svg Msg
+satLightPalette hue colCss mouseTarget =
     svg
         [ SvgAttrs.width (String.fromInt widgetWidth)
         , SvgAttrs.height "150"
@@ -282,7 +294,7 @@ satLightPalette colCss model =
              , SvgAttrs.height "150"
              , SvgAttrs.fill "url(#pickerBrightness)"
              ]
-                ++ dragAttrs model.mouseTarget SatLight (OnMouseMove SatLight)
+                ++ dragAttrs mouseTarget (SatLight hue) (OnMouseMove <| SatLight hue)
             )
             []
         ]
@@ -331,8 +343,8 @@ pickerIndicator col =
 -- --------------------------
 
 
-huePalette : Model -> Svg Msg
-huePalette model =
+huePalette : MouseTarget -> Svg Msg
+huePalette mouseTarget =
     let
         mkStop ( os, sc ) =
             stop [ offset os, stopColor sc, stopOpacity "1" ] []
@@ -362,7 +374,7 @@ huePalette model =
              , SvgAttrs.height "100%"
              , SvgAttrs.fill "url(#gradient-hsv)"
              ]
-                ++ dragAttrs model.mouseTarget HueSlider (OnMouseMove HueSlider)
+                ++ dragAttrs mouseTarget HueSlider (OnMouseMove HueSlider)
             )
             []
         ]
