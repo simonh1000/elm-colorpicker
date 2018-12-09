@@ -99,15 +99,17 @@ viewCol col =
     let
         res =
             Color.toHsla col
+
+        toStr =
+            dec 3 >> String.fromFloat
     in
-    Debug.toString <|
-        { res
-            | hue = dec 3 res.hue
-            , saturation = dec 3 res.saturation
-            , lightness = dec 3 res.lightness
-        }
+    ("{ alpha = " ++ String.fromFloat res.alpha)
+        ++ (", hue = " ++ toStr res.hue)
+        ++ (", lightness = " ++ toStr res.lightness)
+        ++ (", saturation = " ++ toStr res.saturation ++ " }")
 
 
+dec : Float -> Float -> Float
 dec len f =
     let
         exp =

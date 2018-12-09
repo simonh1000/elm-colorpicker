@@ -112,6 +112,7 @@ update_ message col model =
                 ( setHue mouseTarget mouseInfo model, calcNewColour mouseTarget mouseInfo )
 
             else if not mouseInfo.mousePressed && model.mouseTarget == mouseTarget then
+                -- Mouse wss unpressed whie not over a target
                 ( setMouseTarget Unpressed model, Nothing )
 
             else
@@ -165,12 +166,10 @@ setHue mouseTarget mouseInfo model =
             { model | hue = Just <| toFloat mouseInfo.x / widgetWidth }
 
         SatLight hue ->
-            case model.hue of
-                Just _ ->
-                    model
+            { model | hue = model.hue |> Maybe.withDefault hue |> Just }
 
-                Nothing ->
-                    { model | hue = Just hue }
+        OpacitySlider hue ->
+            { model | hue = model.hue |> Maybe.withDefault hue |> Just }
 
         _ ->
             model
@@ -406,7 +405,7 @@ opacityPalette hue model =
         mouseTarget =
             OpacitySlider hue
     in
-    div (overlay ++ svgDragAttrs model.mouseTarget mouseTarget (OnMouseMove mouseTarget)) []
+    div (overlay ++ htmlDragAttrs model.mouseTarget mouseTarget (OnMouseMove mouseTarget)) []
 
 
 {-| Select the hue
@@ -443,29 +442,52 @@ alphaMarker alpha =
 -- --------------------------
 
 
-svgDragAttrs : MouseTarget -> MouseTarget -> (MouseInfo -> Msg) -> List (Svg.Attribute Msg)
-svgDragAttrs mouseTarget thisTgt onMoveMsg =
+htmlDragAttrs : MouseTarget -> MouseTarget -> (MouseInfo -> Msg) -> List (Svg.Attribute Msg)
+htmlDragAttrs currMouseTgt thisTgt onMoveMsg =
     let
         common =
-            [ onMouseDownPos <| OnMouseDown thisTgt
-            , SvgEvents.onMouseUp <| OnMouseUp
-            , onClickSvg <| OnClick thisTgt
+            [ Html.Events.on "mousedown" <| Decode.map (OnMouseDown thisTgt) decodeMouseInfo
+            , Html.Events.onMouseUp OnMouseUp
+            , onClickHtml <| OnClick thisTgt
             ]
     in
-    if mouseTarget == thisTgt then
-        onMouseMovePos onMoveMsg :: common
+    if currMouseTgt == thisTgt then
+        -- for the current target, we also want to track moves
+        Html.Events.on "mousemove" (Decode.map onMoveMsg decodeMouseInfo) :: common
 
     else
         common
 
 
-onMouseDownPos : (MouseInfo -> Msg) -> Svg.Attribute Msg
-onMouseDownPos msgCreator =
+onClickHtml : (MouseInfo -> Msg) -> Html.Attribute Msg
+onClickHtml msgCreator =
+    Html.Events.on "click" (Decode.map msgCreator decodeMouseInfo)
+
+
+svgDragAttrs : MouseTarget -> MouseTarget -> (MouseInfo -> Msg) -> List (Svg.Attribute Msg)
+svgDragAttrs currMouseTgt thisTgt onMoveMsg =
+    let
+        common =
+            [ onMouseDownSvg <| OnMouseDown thisTgt
+            , SvgEvents.onMouseUp OnMouseUp
+            , onClickSvg <| OnClick thisTgt
+            ]
+    in
+    if currMouseTgt == thisTgt then
+        -- for the current target, we also want to track moves
+        onMouseMoveSvg onMoveMsg :: common
+
+    else
+        common
+
+
+onMouseDownSvg : (MouseInfo -> Msg) -> Svg.Attribute Msg
+onMouseDownSvg msgCreator =
     SvgEvents.on "mousedown" (Decode.map msgCreator decodeMouseInfo)
 
 
-onMouseMovePos : (MouseInfo -> Msg) -> Svg.Attribute Msg
-onMouseMovePos msgCreator =
+onMouseMoveSvg : (MouseInfo -> Msg) -> Svg.Attribute Msg
+onMouseMoveSvg msgCreator =
     SvgEvents.on "mousemove" (Decode.map msgCreator decodeMouseInfo)
 
 
@@ -501,7 +523,7 @@ decodeMouseInfo =
 
 
 
--- Styles
+-- Html Attributes
 
 
 sliderContainerStyles : String -> List (Html.Attribute msg)
@@ -535,13 +557,14 @@ markerAttrs =
     , Attrs.style "bottom" "1px"
     , Attrs.style "border" "1px solid #ddd"
     , Attrs.style "background-color" "#ffffff"
-
-    -- , Attrs.style "height" "10px"
     , Attrs.style "width" "6px"
-
-    -- this is essental to enable dragging
-    , Attrs.style "pointer-events" "none"
+    , -- this is essental to enable dragging
+      Attrs.style "pointer-events" "none"
     ]
+
+
+
+-- SVG Attributes
 
 
 sliderStyles : List (Svg.Attribute msg)
