@@ -69,7 +69,7 @@ type MouseTarget
     = Unpressed
     | SatLight Float -- hue, main area
     | HueSlider -- 1st slider
-    | OpacitySlider -- 2nd slider
+    | OpacitySlider Float -- hue, 2nd slider
 
 
 
@@ -125,8 +125,9 @@ update_ message col model =
                 HueSlider ->
                     Just << calcHue col
 
-                OpacitySlider ->
-                    \mouseInfo -> model.hue |> Maybe.map (\h -> calcOpacity col h mouseInfo)
+                OpacitySlider hue ->
+                    -- \mouseInfo -> model.hue |> Maybe.map (\h -> calcOpacity col h mouseInfo)
+                    Just << calcOpacity col (Maybe.withDefault hue model.hue)
 
                 Unpressed ->
                     \_ -> Nothing
@@ -258,7 +259,7 @@ view col (State model) =
             , hueMarker hue
             ]
         , div (checkedBkgStyles ++ pickerStyles ++ sliderContainerStyles "opacity")
-            [ opacityPalette colCss model
+            [ opacityPalette hue model
             , alphaMarker hsla.alpha
             ]
         ]
@@ -294,7 +295,7 @@ satLightPalette hue colCss mouseTarget =
              , SvgAttrs.height "150"
              , SvgAttrs.fill "url(#pickerBrightness)"
              ]
-                ++ dragAttrs mouseTarget (SatLight hue) (OnMouseMove <| SatLight hue)
+                ++ svgDragAttrs mouseTarget (SatLight hue) (OnMouseMove <| SatLight hue)
             )
             []
         ]
@@ -374,7 +375,7 @@ huePalette mouseTarget =
              , SvgAttrs.height "100%"
              , SvgAttrs.fill "url(#gradient-hsv)"
              ]
-                ++ dragAttrs mouseTarget HueSlider (OnMouseMove HueSlider)
+                ++ svgDragAttrs mouseTarget HueSlider (OnMouseMove HueSlider)
             )
             []
         ]
@@ -386,35 +387,26 @@ huePalette mouseTarget =
 -- --------------------------
 
 
-opacityPalette : String -> Model -> Svg Msg
-opacityPalette colCss model =
+opacityPalette : Float -> Model -> Svg Msg
+opacityPalette hue model =
     let
-        mkStop ( os, sc, op ) =
-            stop [ offset os, stopColor sc, stopOpacity op ] []
+        mkCol op =
+            Color.hsla hue 1 0.5 op
+                |> Color.toCssString
 
-        stops : List ( String, String, String )
-        stops =
-            [ ( "0%", colCss, "1" )
-            , ( "100%", colCss, "0" )
+        grad =
+            "linear-gradient(0.25turn, " ++ mkCol 0 ++ ", " ++ mkCol 1 ++ ")"
+
+        overlay =
+            [ Attrs.style "background" grad
+            , Attrs.style "height" "100%"
+            , Attrs.style "width" "100%"
             ]
+
+        mouseTarget =
+            OpacitySlider hue
     in
-    svg sliderStyles
-        [ defs []
-            [ linearGradient
-                [ SvgAttrs.id "gradient-opacity", x1 "100%", y1 "0%", x2 "0%", y2 "0%" ]
-                (stops |> List.map mkStop)
-            ]
-        , rect
-            ([ x "0"
-             , y "0"
-             , SvgAttrs.width (String.fromInt widgetWidth)
-             , SvgAttrs.height "100%"
-             , SvgAttrs.fill "url(#gradient-opacity)"
-             ]
-                ++ dragAttrs model.mouseTarget OpacitySlider (OnMouseMove OpacitySlider)
-            )
-            []
-        ]
+    div (overlay ++ svgDragAttrs model.mouseTarget mouseTarget (OnMouseMove mouseTarget)) []
 
 
 {-| Select the hue
@@ -451,8 +443,8 @@ alphaMarker alpha =
 -- --------------------------
 
 
-dragAttrs : MouseTarget -> MouseTarget -> (MouseInfo -> Msg) -> List (Svg.Attribute Msg)
-dragAttrs mouseTarget thisTgt onMoveMsg =
+svgDragAttrs : MouseTarget -> MouseTarget -> (MouseInfo -> Msg) -> List (Svg.Attribute Msg)
+svgDragAttrs mouseTarget thisTgt onMoveMsg =
     let
         common =
             [ onMouseDownPos <| OnMouseDown thisTgt
