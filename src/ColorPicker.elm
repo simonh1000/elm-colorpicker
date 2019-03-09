@@ -1,15 +1,14 @@
-module ColorPicker exposing (State, Msg, empty, update, view, color2Hex, hex2Color)
+module ColorPicker exposing (State, Msg, empty, update, view)
 
 {-| An Elm library to help you implement a color picker tool.
 
-@docs State, Msg, empty, update, view, color2Hex, hex2Color
+@docs State, Msg, empty, update, view
 
-The main picker is for saturation and lightness, while the sliders below are for hie and opacity respectively.
+The main picker is for saturation and lightness, while the sliders below are for hue and opacity respectively.
 
 -}
 
 import Color exposing (Color)
-import Hex
 import Html exposing (Html, div)
 import Html.Attributes as Attrs
 import Html.Events
@@ -21,6 +20,10 @@ import Svg.Events as SvgEvents
 
 widgetWidth =
     200
+
+
+widgetHeight =
+    150
 
 
 {-| Opaque type. Needs to be added to your model. You will also need to store a `Color` in your model
@@ -184,7 +187,7 @@ calcSatLight col currHue { x, y, mousePressed } =
     { hsla
         | hue = currHue
         , saturation = toFloat x / widgetWidth
-        , lightness = 1 - toFloat y / 150
+        , lightness = 1 - toFloat y / widgetHeight
     }
         |> Color.fromHsla
 
@@ -268,7 +271,7 @@ satLightPalette : Float -> String -> MouseTarget -> Svg Msg
 satLightPalette hue colCss mouseTarget =
     svg
         [ SvgAttrs.width (String.fromInt widgetWidth)
-        , SvgAttrs.height "150"
+        , SvgAttrs.height (String.fromInt widgetHeight)
         , SvgAttrs.class "main-picker"
         , SvgAttrs.display "block"
         ]
@@ -287,11 +290,11 @@ satLightPalette hue colCss mouseTarget =
                 , stop [ offset "1", stopColor "#000", stopOpacity "1" ] []
                 ]
             ]
-        , rect [ SvgAttrs.width (String.fromInt widgetWidth), SvgAttrs.height "150", SvgAttrs.fill colCss, SvgAttrs.id "picker" ] []
-        , rect [ SvgAttrs.width (String.fromInt widgetWidth), SvgAttrs.height "150", SvgAttrs.fill "url(#pickerSaturation)" ] []
+        , rect [ SvgAttrs.width (String.fromInt widgetWidth), SvgAttrs.height (String.fromInt widgetHeight), SvgAttrs.fill colCss, SvgAttrs.id "picker" ] []
+        , rect [ SvgAttrs.width (String.fromInt widgetWidth), SvgAttrs.height (String.fromInt widgetHeight), SvgAttrs.fill "url(#pickerSaturation)" ] []
         , rect
             ([ SvgAttrs.width (String.fromInt widgetWidth)
-             , SvgAttrs.height "150"
+             , SvgAttrs.height (String.fromInt widgetHeight)
              , SvgAttrs.fill "url(#pickerBrightness)"
              ]
                 ++ svgDragAttrs mouseTarget (SatLight hue) (OnMouseMove <| SatLight hue)
@@ -322,7 +325,7 @@ pickerIndicator col =
             saturation * widgetWidth - adjustment |> round |> String.fromInt
 
         cy_ =
-            150 - lightness * 150 - adjustment |> round |> String.fromInt
+            widgetHeight - lightness * widgetHeight - adjustment |> round |> String.fromInt
     in
     div
         [ Attrs.style "position" "absolute"
@@ -573,51 +576,3 @@ sliderStyles =
     , SvgAttrs.height "100%"
     , SvgAttrs.display "block"
     ]
-
-
-
--- Colour Helpers
-
-
-{-| Converts `Color` to `String` (with preceding `#`).
-Used internally and exposed because the public alternative is a library with multiple dependencies.
--}
-color2Hex : Color -> String
-color2Hex col =
-    let
-        { red, green, blue } =
-            Color.toRgba col
-    in
-    [ red, green, blue ]
-        |> List.map (round >> padHex)
-        |> String.join ""
-        |> (++) "#"
-
-
-{-| Converts `String` to `Color`.
-Used internally and exposed because the public alternative is a library with multiple dependencies.
--}
-hex2Color : String -> Maybe Color
-hex2Color s =
-    if String.length s /= 7 then
-        Nothing
-
-    else
-        let
-            hex =
-                String.toLower s
-
-            conv begin end =
-                String.slice begin end >> Hex.fromString >> Result.map toFloat
-        in
-        Result.map3 Color.rgb (conv 1 3 hex) (conv 3 5 hex) (conv 5 7 hex)
-            |> Result.toMaybe
-
-
-padHex : Int -> String
-padHex x =
-    if x < 16 then
-        "0" ++ Hex.toString x
-
-    else
-        Hex.toString x
