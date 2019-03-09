@@ -59,6 +59,7 @@ Open http://localhost:3000
 
 ### Changelog
 
+ * 2.0.0 : Remove two exposed helpers that were no longer needed, and buggy
  * 1.1.4 : add opacity picker; better styling; add classes to elements of widget; improved modelling under the hood
  * 1.1.3 : 0.19 (with new Color library)
  * 1.0.0 : Initial release
