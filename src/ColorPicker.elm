@@ -51,7 +51,7 @@ empty =
     State blankModel
 
 
-{-| The model stores the hue because dark colours has indistinguihsable hues.
+{-| The model stores the hue because dark/light colours are otherwise indistinguihsable.
 But the user could easily change their hex between updates so we need to check that this has _probably_
 not happened.
 -}
@@ -165,11 +165,11 @@ setMouseTarget mouseTarget model =
 setHue : MouseTarget -> MouseInfo -> Model -> Model
 setHue mouseTarget mouseInfo model =
     case mouseTarget of
-        HueSlider ->
-            { model | hue = Just <| toFloat mouseInfo.x / widgetWidth }
-
         SatLight hue ->
             { model | hue = model.hue |> Maybe.withDefault hue |> Just }
+
+        HueSlider ->
+            { model | hue = Just <| toFloat mouseInfo.x / widgetWidth }
 
         OpacitySlider hue ->
             { model | hue = model.hue |> Maybe.withDefault hue |> Just }
@@ -261,7 +261,7 @@ view col (State model) =
             , hueMarker hue
             ]
         , div (checkedBkgStyles ++ pickerStyles ++ sliderContainerStyles "opacity")
-            [ opacityPalette hue model
+            [ opacityPalette hsla model
             , alphaMarker hsla.alpha
             ]
         ]
@@ -389,11 +389,11 @@ huePalette mouseTarget =
 -- --------------------------
 
 
-opacityPalette : Float -> Model -> Svg Msg
-opacityPalette hue model =
+opacityPalette : { a | hue : Float, saturation : Float, lightness : Float } -> Model -> Html Msg
+opacityPalette hsla model =
     let
         mkCol op =
-            Color.hsla hue 1 0.5 op
+            Color.hsla hsla.hue hsla.saturation hsla.lightness op
                 |> Color.toCssString
 
         grad =
@@ -406,7 +406,7 @@ opacityPalette hue model =
             ]
 
         mouseTarget =
-            OpacitySlider hue
+            OpacitySlider hsla.hue
     in
     div (overlay ++ htmlDragAttrs model.mouseTarget mouseTarget (OnMouseMove mouseTarget)) []
 
@@ -561,7 +561,7 @@ markerAttrs =
     , Attrs.style "border" "1px solid #ddd"
     , Attrs.style "background-color" "#ffffff"
     , Attrs.style "width" "6px"
-    , -- this is essental to enable dragging
+    , -- this is essential to enable dragging
       Attrs.style "pointer-events" "none"
     ]
 
