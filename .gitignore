@@ -3,7 +3,6 @@ logs
 *.log
 npm-debug.log*
 
-
 # Compiled binary addons (http://nodejs.org/api/addons.html)
 build/Release
 
@@ -23,7 +22,8 @@ elm-stuff/
 repl-temp-*
 
 .DS_Store
-example/dist
+.idea
 
+example/dist
 ignore
 dist
