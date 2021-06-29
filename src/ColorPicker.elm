@@ -93,7 +93,7 @@ type Msg
 
 {-| On each update, ColorPicker returns its model and (where appropriate) the new selected colo(u)r.
 
-    ColorPickermsg msg ->
+    ColorPickerMsg msg ->
         let
             (cp, col) =
                 ColorPicker.update msg model.colorPicker
@@ -130,7 +130,6 @@ update_ message col model =
                     Just << calcHue col
 
                 OpacitySlider hue ->
-                    -- \mouseInfo -> model.hue |> Maybe.map (\h -> calcOpacity col h mouseInfo)
                     Just << calcOpacity col (Maybe.withDefault hue model.hue)
 
                 Unpressed ->
@@ -218,7 +217,7 @@ calcOpacity col _ { x, mousePressed } =
         hsla =
             Color.toHsla col
     in
-    { hsla | alpha = toFloat x / widgetWidth }
+    { hsla | alpha = toFloat (Basics.clamp 0 widgetWidth x) / widgetWidth }
         |> Color.fromHsla
 
 
@@ -416,12 +415,9 @@ opacityPalette hsla model =
 hueMarker : Float -> Html Msg
 hueMarker lastHue =
     let
-        correction =
-            4
-
         xVal =
             -- shift by 4px to center on selected color
-            (lastHue * widgetWidth - correction) |> round |> String.fromInt
+            (lastHue * widgetWidth - markerCorrection) |> round |> String.fromInt
     in
     div (Attrs.style "left" (xVal ++ "px") :: markerAttrs) []
 
@@ -429,14 +425,15 @@ hueMarker lastHue =
 alphaMarker : Float -> Html Msg
 alphaMarker alpha =
     let
-        correction =
-            4
-
         xVal =
             -- shift by 4px to center on selected color
-            (alpha * widgetWidth - correction) |> round |> String.fromInt
+            (alpha * widgetWidth - markerCorrection) |> round |> String.fromInt
     in
     div (Attrs.style "left" (xVal ++ "px") :: markerAttrs) []
+
+
+markerCorrection =
+    4
 
 
 
@@ -517,6 +514,8 @@ type alias MouseInfo =
     }
 
 
+{-| I tried
+-}
 decodeMouseInfo : Decoder MouseInfo
 decodeMouseInfo =
     Decode.map3 MouseInfo

@@ -14,10 +14,10 @@ body {
 header {
     display: flex;
     align-items: center;
-    img {
-        width: 60px;
-        margin-right: 30px;
-    }
+}
+header img {
+    width: 60px;
+    margin-right: 30px;
 }
 button {
     margin-right: 15px;
