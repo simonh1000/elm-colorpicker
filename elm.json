@@ -15,7 +15,5 @@
         "elm/json": "1.0.0 <= v < 2.0.0",
         "elm/svg": "1.0.1 <= v < 2.0.0"
     },
-    "test-dependencies": {
-        "elm-explorations/test": "1.1.0 <= v < 2.0.0"
-    }
+    "test-dependencies": {}
 }
