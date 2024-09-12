@@ -1,6 +1,6 @@
 # Elm ColorPicker widget
 
-An Elm library to help you implement a colo(u)r picker tool without relying upon the presence - or [otherwise](http://caniuse.com/#feat=input-color) - of a built in browser widget.
+An Elm library to help you implement a colo(u)r picker tool without relying upon the presence - or [otherwise](http://caniuse.com/#feat=input-color) - of a built-in browser widget.
 
 <img src="https://github.com/simonh1000/elm-colorpicker/raw/master/screenshot.png" alt="screen shot">
 
@@ -47,11 +47,11 @@ view model =
 See it in action
 
 ```sh
-$ cd example
-$ npm install
-$ npm run dev
-Open http://localhost:3000
+cd example
+npm install
+npm run dev
 ```
+Open http://localhost:3000
 
 ### To Do
 

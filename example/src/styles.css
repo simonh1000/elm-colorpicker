@@ -8,9 +8,51 @@ body {
     margin-left: 20px;
 }
 
-.color-picker-container {
-    margin-bottom: 20px;
+.colorpicker {
+    position: relative;
 }
+.colorpicker__container {
+    position: absolute;
+    top: 32px;
+    background-color: white;
+    border: 1px solid grey;
+    padding: 10px;
+    box-shadow: 0 4px 6px 0 lightgray;
+    z-index: 3;
+    color: black;
+}
+
+.colorpicker__container .color-palette {
+    margin-top: 12px;
+}
+
+.colorpicker__container .color-palette .color-item {
+    width: 16px;
+    height: 16px;
+    margin: 0 4px 4px 0;
+    border-radius: 1px;
+    cursor: pointer;
+}
+
+.colorpicker__container .color-palette .color-item > span {
+    display: block;
+    height: 100%;
+    width: 100%;
+    border: 1px solid lightgray;
+}
+
+.color-swatch {
+    flex-shrink: 0;
+    position: relative;
+    border-radius: 2px;
+    background: grey;
+    width: 48px;
+    height: 30px;
+    margin: 0 1px;
+    border: 1px solid lightgray;
+    cursor: pointer;
+}
+
 header {
     display: flex;
     align-items: center;
@@ -21,4 +63,8 @@ header img {
 }
 button {
     margin-right: 15px;
+}
+
+.show-focus:focus {
+    border: 1px solid white;
 }

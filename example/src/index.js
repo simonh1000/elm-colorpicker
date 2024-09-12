@@ -1,5 +1,6 @@
 'use strict';
 
+import "./tailwind.css";
 require("./styles.css");
 
 const {Elm} = require('./Main');
